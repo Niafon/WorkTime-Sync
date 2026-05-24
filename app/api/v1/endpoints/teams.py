@@ -1,0 +1,154 @@
+from datetime import datetime
+from typing import Annotated, Any
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import CurrentEmployeeDep, get_db_session
+from app.schemas.availability import (
+    MeetingRecommendationRequest,
+    MeetingRecommendationResponse,
+    TeamAvailabilityResponse,
+)
+from app.schemas.common import ErrorResponse
+from app.schemas.team import TeamCreate, TeamResponse, TeamUpdate
+from app.schemas.team_member import TeamMemberCreate, TeamMemberResponse
+from app.services.exceptions import InvalidOperationError, NotFoundError
+from app.services.team_availability import TeamAvailabilityService
+from app.services.team_members import TeamMemberService
+from app.services.teams import TeamService
+
+router = APIRouter(prefix="/teams", tags=["teams"])
+SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+
+error_responses: dict[int | str, dict[str, Any]] = {
+    status.HTTP_400_BAD_REQUEST: {"model": ErrorResponse},
+    status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+}
+
+
+@router.post(
+    "",
+    response_model=TeamResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=error_responses,
+)
+async def create_team(
+    payload: TeamCreate,
+    session: SessionDep,
+    _current_employee: CurrentEmployeeDep,
+) -> TeamResponse:
+    team = await TeamService(session).create(payload)
+    return TeamResponse.model_validate(team)
+
+
+@router.get("", response_model=list[TeamResponse])
+async def list_teams(
+    session: SessionDep,
+) -> list[TeamResponse]:
+    teams = await TeamService(session).list()
+    return [TeamResponse.model_validate(team) for team in teams]
+
+
+@router.get("/{team_id}", response_model=TeamResponse, responses=error_responses)
+async def get_team(
+    team_id: UUID,
+    session: SessionDep,
+) -> TeamResponse:
+    try:
+        team = await TeamService(session).get(team_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return TeamResponse.model_validate(team)
+
+
+@router.patch("/{team_id}", response_model=TeamResponse, responses=error_responses)
+async def update_team(
+    team_id: UUID,
+    payload: TeamUpdate,
+    session: SessionDep,
+    _current_employee: CurrentEmployeeDep,
+) -> TeamResponse:
+    try:
+        team = await TeamService(session).update(team_id, payload)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return TeamResponse.model_validate(team)
+
+
+@router.post(
+    "/{team_id}/members",
+    response_model=TeamMemberResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=error_responses,
+)
+async def create_team_member(
+    team_id: UUID,
+    payload: TeamMemberCreate,
+    session: SessionDep,
+    _current_employee: CurrentEmployeeDep,
+) -> TeamMemberResponse:
+    try:
+        team_member = await TeamMemberService(session).create(team_id, payload)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except InvalidOperationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return TeamMemberResponse.model_validate(team_member)
+
+
+@router.delete(
+    "/{team_id}/members/{employee_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses,
+)
+async def delete_team_member(
+    team_id: UUID,
+    employee_id: UUID,
+    session: SessionDep,
+    _current_employee: CurrentEmployeeDep,
+) -> Response:
+    try:
+        await TeamMemberService(session).delete(team_id, employee_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/{team_id}/availability",
+    response_model=TeamAvailabilityResponse,
+    responses=error_responses,
+)
+async def get_team_availability(
+    team_id: UUID,
+    start_dt: datetime,
+    end_dt: datetime,
+    session: SessionDep,
+) -> TeamAvailabilityResponse:
+    try:
+        return await TeamAvailabilityService(session).get_availability(team_id, start_dt, end_dt)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except InvalidOperationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{team_id}/meeting-recommendations",
+    response_model=list[MeetingRecommendationResponse],
+    responses=error_responses,
+)
+async def get_team_meeting_recommendations(
+    team_id: UUID,
+    payload: MeetingRecommendationRequest,
+    session: SessionDep,
+    _current_employee: CurrentEmployeeDep,
+) -> list[MeetingRecommendationResponse]:
+    try:
+        return await TeamAvailabilityService(session).recommend_meetings(team_id, payload)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except InvalidOperationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
