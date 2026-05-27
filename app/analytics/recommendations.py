@@ -34,45 +34,45 @@ def generate_recommendations(context: RecommendationContext) -> list[Recommendat
         recommendations.append(
             Recommendation(
                 code="outdated_schedule",
-                reason=f"Schedule was updated {snapshot.days_since_update} days ago.",
+                reason=f"График обновлялся {snapshot.days_since_update} дн. назад.",
                 severity="medium",
-                action="Ask the employee or manager to confirm the current work schedule.",
+                action="Запросите подтверждение актуального графика у сотрудника или руководителя.",
             )
         )
     if snapshot.conflict_rate >= HIGH_CONFLICT_RATE_THRESHOLD:
         recommendations.append(
             Recommendation(
                 code="high_conflict_rate",
-                reason=f"Conflict rate is {snapshot.conflict_rate:.0%}.",
+                reason=f"Доля конфликтов: {snapshot.conflict_rate:.0%}.",
                 severity="high",
-                action="Review recurring events that conflict with the schedule.",
+                action="Проверьте регулярные встречи, выходящие за рамки графика.",
             )
         )
     if snapshot.load_level > HIGH_LOAD_LEVEL_THRESHOLD:
         recommendations.append(
             Recommendation(
                 code="high_load_level",
-                reason=f"Load level is {snapshot.load_level:.0%} of scheduled work hours.",
+                reason=f"Загрузка: {snapshot.load_level:.0%} от рабочих часов.",
                 severity="high",
-                action="Reduce meeting load or adjust the schedule.",
+                action="Снизьте нагрузку по встречам или скорректируйте график.",
             )
         )
     if snapshot.risk_score >= HIGH_RISK_THRESHOLD:
         recommendations.append(
             Recommendation(
                 code="high_risk_score",
-                reason=f"Risk score is {snapshot.risk_score:.2f}.",
+                reason=f"Индекс риска: {snapshot.risk_score:.2f}.",
                 severity="critical" if snapshot.risk_level == "critical" else "high",
-                action="Prioritize manager review for this employee.",
+                action="Возьмите сотрудника в приоритет на review с руководителем.",
             )
         )
     if snapshot.outside_events_count > 0:
         recommendations.append(
             Recommendation(
                 code="events_outside_schedule",
-                reason=f"{snapshot.outside_events_count} events are outside the schedule.",
+                reason=f"Встреч вне графика: {snapshot.outside_events_count}.",
                 severity="medium",
-                action="Move events into working hours or update schedule exceptions.",
+                action="Перенесите встречи в рабочее время или обновите исключения графика.",
             )
         )
 
@@ -94,10 +94,10 @@ def _timezone_mismatch_recommendations(context: RecommendationContext) -> list[R
         Recommendation(
             code="timezone_mismatch_suspicion",
             reason=(
-                "Employee timezone differs from schedule or event timezone: "
+                "Тайм-зона сотрудника отличается от тайм-зоны графика или событий: "
                 + ", ".join(sorted(mismatched_timezones))
             ),
             severity="medium",
-            action="Verify timezone settings before recalculating metrics.",
+            action="Проверьте настройки тайм-зон перед пересчётом показателей.",
         )
     ]

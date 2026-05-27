@@ -22,6 +22,7 @@ class WorkScheduleResponse(BaseModel):
     end_time: time
     timezone: str
     last_updated_at: datetime
+    confirmed_at: datetime | None = None
     is_active: bool
     created_at: datetime
 

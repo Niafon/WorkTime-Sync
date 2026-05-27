@@ -5,14 +5,20 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, String, func
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.roles import EmployeeRole
 from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.activity_event import ActivityEvent
     from app.models.employee_metric import EmployeeMetric
+    from app.models.notification import Notification
+    from app.models.refresh_token import RefreshToken
+    from app.models.roadmap_item import RoadmapItem
+    from app.models.schedule_confirmation_request import ScheduleConfirmationRequest
     from app.models.schedule_exception import ScheduleException
     from app.models.team_member import TeamMember
     from app.models.work_schedule import WorkSchedule
@@ -27,9 +33,19 @@ class Employee(Base):
         default=uuid4,
     )
     vk_user_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
-    role: Mapped[str] = mapped_column(String(40), nullable=False)
+    role: Mapped[EmployeeRole] = mapped_column(
+        SAEnum(
+            EmployeeRole,
+            native_enum=False,
+            length=40,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     position: Mapped[str | None] = mapped_column(String(150), nullable=True)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
     work_format: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -70,4 +86,32 @@ class Employee(Base):
         back_populates="employee",
         cascade="all, delete-orphan",
         uselist=False,
+    )
+    confirmation_requests: Mapped[list[ScheduleConfirmationRequest]] = relationship(
+        "ScheduleConfirmationRequest",
+        back_populates="employee",
+        foreign_keys="ScheduleConfirmationRequest.employee_id",
+        cascade="all, delete-orphan",
+    )
+    confirmation_requests_made: Mapped[list[ScheduleConfirmationRequest]] = relationship(
+        "ScheduleConfirmationRequest",
+        back_populates="requested_by",
+        foreign_keys="ScheduleConfirmationRequest.requested_by_id",
+    )
+    roadmap_items: Mapped[list[RoadmapItem]] = relationship(
+        "RoadmapItem",
+        back_populates="employee",
+        foreign_keys="RoadmapItem.employee_id",
+        cascade="all, delete-orphan",
+    )
+    notifications: Mapped[list[Notification]] = relationship(
+        "Notification",
+        back_populates="recipient",
+        foreign_keys="Notification.recipient_id",
+        cascade="all, delete-orphan",
+    )
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
+        "RefreshToken",
+        back_populates="employee",
+        cascade="all, delete-orphan",
     )

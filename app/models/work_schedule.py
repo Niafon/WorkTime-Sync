@@ -37,6 +37,10 @@ class WorkSchedule(Base):
         DateTime(timezone=True),
         nullable=False,
     )
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     is_active: Mapped[bool] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

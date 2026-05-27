@@ -1,0 +1,35 @@
+employee_id,external_id,source,event_type,title,start_dt,end_dt,timezone,is_recurring,is_outside_schedule,recurrence_rule
+00000000-0000-0000-0000-000000000002,seed-orlov-1,mock,meeting,Daily standup,{{days_ago:1}}T10:00:00+03:00,{{days_ago:1}}T10:15:00+03:00,Europe/Moscow,true,false,"FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=20"
+00000000-0000-0000-0000-000000000002,seed-orlov-2,mock,meeting,Архитектурный комитет,{{days_ago:2}}T14:00:00+03:00,{{days_ago:2}}T15:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000002,seed-orlov-3,mock,focus,Code review,{{days_ago:3}}T11:00:00+03:00,{{days_ago:3}}T12:30:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000002,seed-orlov-4,mock,meeting,1:1 с PM,{{days_ago:5}}T16:00:00+03:00,{{days_ago:5}}T16:30:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000003,seed-makarova-1,mock,meeting,Planning,{{days_ago:1}}T11:00:00+03:00,{{days_ago:1}}T12:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000003,seed-makarova-2,mock,call,Демо для стейкхолдеров,{{days_ago:4}}T15:00:00+03:00,{{days_ago:4}}T16:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000003,seed-makarova-3,mock,meeting,Sync с заказчиком,{{days_ago:7}}T20:30:00+03:00,{{days_ago:7}}T21:30:00+03:00,Europe/Moscow,false,true,
+00000000-0000-0000-0000-000000000003,seed-makarova-4,mock,meeting,Retrospective,{{days_ago:14}}T17:00:00+03:00,{{days_ago:14}}T18:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000003,seed-makarova-5,mock,call,Звонок с клиентом,{{days_ago:2}}T19:30:00+03:00,{{days_ago:2}}T20:00:00+03:00,Europe/Moscow,false,true,
+00000000-0000-0000-0000-000000000004,seed-vorobyeva-1,mock,meeting,1:1 с руководителем,{{days_ago:6}}T11:00:00+03:00,{{days_ago:6}}T11:30:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000004,seed-vorobyeva-2,mock,call,Интервью кандидата,{{days_ago:3}}T14:00:00+03:00,{{days_ago:3}}T15:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000004,seed-vorobyeva-3,mock,call,Интервью кандидата,{{days_ago:10}}T16:00:00+03:00,{{days_ago:10}}T17:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000005,seed-petrov-1,mock,focus,Глубокая работа: рефакторинг,{{days_ago:1}}T10:00:00+03:00,{{days_ago:1}}T12:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000005,seed-petrov-2,mock,meeting,Daily standup,{{days_ago:2}}T10:00:00+03:00,{{days_ago:2}}T10:15:00+03:00,Europe/Moscow,true,false,"FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=20"
+00000000-0000-0000-0000-000000000005,seed-petrov-3,mock,focus,Подготовка к релизу,{{days_ago:3}}T20:00:00+03:00,{{days_ago:3}}T22:00:00+03:00,Europe/Moscow,false,true,
+00000000-0000-0000-0000-000000000005,seed-petrov-4,mock,focus,Разбор инцидента,{{days_ago:5}}T21:00:00+03:00,{{days_ago:5}}T23:00:00+03:00,Europe/Moscow,false,true,
+00000000-0000-0000-0000-000000000005,seed-petrov-5,mock,meeting,Архитектурный комитет,{{days_ago:8}}T15:00:00+03:00,{{days_ago:8}}T16:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000005,seed-petrov-6,mock,focus,Code review,{{days_ago:10}}T11:00:00+03:00,{{days_ago:10}}T12:30:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000006,seed-sidorova-1,mock,meeting,Daily standup,{{days_ago:1}}T10:00:00+02:00,{{days_ago:1}}T10:15:00+02:00,Europe/Kaliningrad,true,false,"FREQ=WEEKLY;BYDAY=MO,TU,WE,TH;COUNT=16"
+00000000-0000-0000-0000-000000000006,seed-sidorova-2,mock,focus,Глубокая работа,{{days_ago:2}}T11:00:00+02:00,{{days_ago:2}}T13:00:00+02:00,Europe/Kaliningrad,false,false,
+00000000-0000-0000-0000-000000000006,seed-sidorova-3,mock,meeting,Grooming,{{days_ago:4}}T14:00:00+02:00,{{days_ago:4}}T15:00:00+02:00,Europe/Kaliningrad,false,false,
+00000000-0000-0000-0000-000000000006,seed-sidorova-4,mock,meeting,Кросс-командный sync,{{days_ago:7}}T20:00:00+02:00,{{days_ago:7}}T21:00:00+02:00,Europe/Kaliningrad,false,true,
+00000000-0000-0000-0000-000000000007,seed-volkova-1,mock,meeting,Daily standup,{{days_ago:1}}T09:30:00+03:00,{{days_ago:1}}T09:45:00+03:00,Europe/Moscow,true,false,"FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=20"
+00000000-0000-0000-0000-000000000007,seed-volkova-2,mock,focus,Документация,{{days_ago:2}}T14:00:00+03:00,{{days_ago:2}}T16:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000007,seed-volkova-3,mock,meeting,Демо,{{days_ago:6}}T16:00:00+03:00,{{days_ago:6}}T17:00:00+03:00,Europe/Moscow,false,false,
+00000000-0000-0000-0000-000000000008,seed-morozov-1,mock,focus,Разбор инцидента,{{days_ago:1}}T22:00:00+05:00,{{days_ago:1}}T23:30:00+05:00,Asia/Yekaterinburg,false,true,
+00000000-0000-0000-0000-000000000008,seed-morozov-2,mock,meeting,Daily standup,{{days_ago:2}}T09:00:00+05:00,{{days_ago:2}}T09:15:00+05:00,Asia/Yekaterinburg,true,false,"FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=20"
+00000000-0000-0000-0000-000000000008,seed-morozov-3,mock,focus,Подготовка к релизу,{{days_ago:4}}T19:00:00+05:00,{{days_ago:4}}T21:00:00+05:00,Asia/Yekaterinburg,false,true,
+00000000-0000-0000-0000-000000000008,seed-morozov-4,mock,call,Звонок с подрядчиком,{{days_ago:7}}T18:00:00+05:00,{{days_ago:7}}T19:00:00+05:00,Asia/Yekaterinburg,false,true,
+00000000-0000-0000-0000-000000000008,seed-morozov-5,mock,meeting,Архитектурный комитет,{{days_ago:10}}T15:00:00+05:00,{{days_ago:10}}T16:00:00+05:00,Asia/Yekaterinburg,false,false,
+00000000-0000-0000-0000-000000000009,seed-kozlova-1,mock,meeting,Planning,{{days_ago:1}}T11:00:00+01:00,{{days_ago:1}}T12:00:00+01:00,Europe/London,false,false,
+00000000-0000-0000-0000-000000000009,seed-kozlova-2,mock,call,Звонок с клиентом,{{days_ago:3}}T20:00:00+01:00,{{days_ago:3}}T21:00:00+01:00,Europe/London,false,true,
+00000000-0000-0000-0000-000000000009,seed-kozlova-3,mock,focus,Документация,{{days_ago:5}}T14:00:00+01:00,{{days_ago:5}}T16:00:00+01:00,Europe/London,false,false,
+00000000-0000-0000-0000-000000000009,seed-kozlova-4,mock,meeting,Sync с заказчиком,{{days_ago:8}}T18:30:00+01:00,{{days_ago:8}}T19:30:00+01:00,Europe/London,false,true,

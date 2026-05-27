@@ -3,7 +3,7 @@ from app.schemas.activity_event import (
     ActivityEventImportResult,
     ActivityEventResponse,
 )
-from app.schemas.auth import AuthTokenResponse, VKLoginResponse
+from app.schemas.auth import VKLoginResponse
 from app.schemas.availability import (
     EmployeeAvailabilityResponse,
     MeetingRecommendationRequest,
@@ -27,7 +27,6 @@ __all__ = (
     "ActivityEventCreate",
     "ActivityEventImportResult",
     "ActivityEventResponse",
-    "AuthTokenResponse",
     "DashboardSummaryResponse",
     "EmployeeAvailabilityResponse",
     "EmployeeCreate",

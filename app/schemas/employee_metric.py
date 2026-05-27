@@ -14,6 +14,8 @@ class EmployeeMetricResponse(BaseModel):
     total_events_count: int
     conflict_rate: float
     load_level: float
+    zone_factor: float = 0.0
+    hr_factor: float = 0.0
     risk_score: float
     risk_level: str
 

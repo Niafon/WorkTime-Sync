@@ -1,0 +1,92 @@
+[
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000001",
+    "work_days": [1, 2, 3, 4, 5],
+    "start_time": "10:00",
+    "end_time": "19:00",
+    "timezone": "Europe/Moscow",
+    "last_updated_at": "{{days_ago:1}}T08:00:00+00:00",
+    "confirmed_at": "{{days_ago:1}}T08:00:00+00:00",
+    "is_active": true
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000002",
+    "work_days": [1, 2, 3, 4, 5],
+    "start_time": "09:00",
+    "end_time": "18:00",
+    "timezone": "Europe/Moscow",
+    "last_updated_at": "{{days_ago:5}}T09:00:00+00:00",
+    "confirmed_at": "{{days_ago:5}}T09:00:00+00:00",
+    "is_active": true
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000003",
+    "work_days": [1, 2, 3, 4, 5],
+    "start_time": "09:00",
+    "end_time": "18:00",
+    "timezone": "Europe/Moscow",
+    "last_updated_at": "{{days_ago:14}}T10:00:00+00:00",
+    "confirmed_at": null,
+    "is_active": true
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000004",
+    "work_days": [1, 2, 3, 4, 5],
+    "start_time": "10:00",
+    "end_time": "18:00",
+    "timezone": "Europe/Moscow",
+    "last_updated_at": "{{days_ago:30}}T09:00:00+00:00",
+    "confirmed_at": null,
+    "is_active": true
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000005",
+    "work_days": [1, 2, 3, 4, 5],
+    "start_time": "09:00",
+    "end_time": "18:00",
+    "timezone": "Europe/Moscow",
+    "last_updated_at": "{{days_ago:45}}T11:00:00+00:00",
+    "confirmed_at": null,
+    "is_active": true
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000006",
+    "work_days": [1, 2, 3, 4],
+    "start_time": "10:00",
+    "end_time": "19:00",
+    "timezone": "Europe/Kaliningrad",
+    "last_updated_at": "{{days_ago:70}}T08:00:00+00:00",
+    "confirmed_at": null,
+    "is_active": true
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000007",
+    "work_days": [1, 2, 3, 4, 5],
+    "start_time": "09:00",
+    "end_time": "18:00",
+    "timezone": "Europe/Moscow",
+    "last_updated_at": "{{days_ago:20}}T09:00:00+00:00",
+    "confirmed_at": null,
+    "is_active": true
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000008",
+    "work_days": [1, 2, 3, 4, 5],
+    "start_time": "08:00",
+    "end_time": "17:00",
+    "timezone": "Asia/Yekaterinburg",
+    "last_updated_at": "{{days_ago:95}}T05:00:00+00:00",
+    "confirmed_at": null,
+    "is_active": true
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000009",
+    "work_days": [1, 2, 3, 4, 5],
+    "start_time": "10:00",
+    "end_time": "19:00",
+    "timezone": "Europe/London",
+    "last_updated_at": "{{days_ago:60}}T10:00:00+00:00",
+    "confirmed_at": null,
+    "is_active": true
+  }
+]

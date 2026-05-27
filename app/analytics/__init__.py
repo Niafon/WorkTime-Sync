@@ -2,14 +2,17 @@ from app.analytics.availability import (
     EmployeeAvailability,
     EmployeeAvailabilityInput,
     MeetingRecommendation,
+    TeamOverlapSummary,
     TimeWindow,
     WorkScheduleWindow,
     calculate_employee_availability,
     is_event_outside_schedule,
     recommend_meeting_windows,
+    team_overlap_summary,
     work_hours,
 )
 from app.analytics.meeting import EventInterval, busy_hours, count_outside_events
+from app.analytics.recurrence import expand_event
 from app.analytics.metrics import (
     ACTUALITY_DECAY_DAYS,
     CRITICAL_RISK_THRESHOLD,
@@ -19,9 +22,11 @@ from app.analytics.metrics import (
     actuality_score,
     conflict_rate,
     days_since_update,
+    hr_factor,
     load_level,
     risk_level,
     risk_score,
+    zone_factor,
 )
 from app.analytics.recommendations import (
     Recommendation,
@@ -41,6 +46,7 @@ __all__ = (
     "MeetingRecommendation",
     "Recommendation",
     "RecommendationContext",
+    "TeamOverlapSummary",
     "TimeWindow",
     "WorkScheduleWindow",
     "actuality_score",
@@ -49,11 +55,15 @@ __all__ = (
     "conflict_rate",
     "count_outside_events",
     "days_since_update",
+    "expand_event",
     "generate_recommendations",
+    "hr_factor",
     "is_event_outside_schedule",
     "load_level",
     "recommend_meeting_windows",
     "risk_level",
     "risk_score",
+    "team_overlap_summary",
     "work_hours",
+    "zone_factor",
 )

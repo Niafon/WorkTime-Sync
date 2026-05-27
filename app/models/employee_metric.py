@@ -36,6 +36,8 @@ class EmployeeMetric(Base):
     total_events_count: Mapped[int] = mapped_column(nullable=False)
     conflict_rate: Mapped[float] = mapped_column(nullable=False)
     load_level: Mapped[float] = mapped_column(nullable=False)
+    zone_factor: Mapped[float] = mapped_column(nullable=False, default=0.0, server_default="0")
+    hr_factor: Mapped[float] = mapped_column(nullable=False, default=0.0, server_default="0")
     risk_score: Mapped[float] = mapped_column(nullable=False)
     risk_level: Mapped[str] = mapped_column(String(20), nullable=False)
 

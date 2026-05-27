@@ -1,6 +1,13 @@
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
+
+RECOMMENDATION_TARGET_STATUSES = ("requested", "deferred", "ignored")
+
+RecommendationTargetStatus = Literal["requested", "deferred", "ignored"]
+RecommendationSubjectType = Literal["employee", "team"]
+RecommendationSeverity = Literal["critical", "high", "medium"]
 
 
 class RecommendationResponse(BaseModel):
@@ -10,3 +17,20 @@ class RecommendationResponse(BaseModel):
     action: str
     subject_type: str
     subject_id: UUID
+    status: str | None = None
+    roadmap_item_id: UUID | None = None
+
+
+class RecommendationStatusUpdateRequest(BaseModel):
+    status: RecommendationTargetStatus
+
+
+class RecommendationBulkStatusRequest(BaseModel):
+    status: RecommendationTargetStatus
+    severity: RecommendationSeverity | None = None
+    subject_type: RecommendationSubjectType | None = None
+
+
+class RecommendationBulkStatusResponse(BaseModel):
+    updated: int
+    skipped: int

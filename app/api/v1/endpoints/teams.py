@@ -5,18 +5,27 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import CurrentEmployeeDep, get_db_session
+from app.api.deps import get_db_session, require_roles
+from app.core.roles import EmployeeRole
+from app.models.employee import Employee
 from app.schemas.availability import (
     MeetingRecommendationRequest,
     MeetingRecommendationResponse,
     TeamAvailabilityResponse,
 )
 from app.schemas.common import ErrorResponse
-from app.schemas.team import TeamCreate, TeamResponse, TeamUpdate
+from app.schemas.team import (
+    TeamAvailabilityRankingItem,
+    TeamCreate,
+    TeamMetricsResponse,
+    TeamResponse,
+    TeamUpdate,
+)
 from app.schemas.team_member import TeamMemberCreate, TeamMemberResponse
 from app.services.exceptions import InvalidOperationError, NotFoundError
 from app.services.team_availability import TeamAvailabilityService
 from app.services.team_members import TeamMemberService
+from app.services.team_metrics import TeamMetricsService
 from app.services.teams import TeamService
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -37,18 +46,66 @@ error_responses: dict[int | str, dict[str, Any]] = {
 async def create_team(
     payload: TeamCreate,
     session: SessionDep,
-    _current_employee: CurrentEmployeeDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles(EmployeeRole.ADMIN, EmployeeRole.MANAGER, EmployeeRole.PM)
+        ),
+    ],
 ) -> TeamResponse:
-    team = await TeamService(session).create(payload)
-    return TeamResponse.model_validate(team)
+    try:
+        team = await TeamService(session).create(payload)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except InvalidOperationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    response = TeamResponse.model_validate(team)
+    response.members_count = len(payload.members)
+    return response
 
 
 @router.get("", response_model=list[TeamResponse])
 async def list_teams(
     session: SessionDep,
 ) -> list[TeamResponse]:
-    teams = await TeamService(session).list()
-    return [TeamResponse.model_validate(team) for team in teams]
+    teams_with_counts = await TeamService(session).list_with_counts()
+    items: list[TeamResponse] = []
+    for team, count in teams_with_counts:
+        item = TeamResponse.model_validate(team)
+        item.members_count = count
+        items.append(item)
+    return items
+
+
+@router.get(
+    "/availability-ranking",
+    response_model=list[TeamAvailabilityRankingItem],
+)
+async def list_team_availability_ranking(
+    session: SessionDep,
+    window_days: int = 7,
+) -> list[TeamAvailabilityRankingItem]:
+    """Рейтинг команд по доступному окну пересечения (ТЗ §8).
+
+    Команды с самым низким `overlap_ratio` идут первыми — это те, кому нужны
+    решения о времени совместных встреч.
+    """
+    return await TeamMetricsService(session).availability_ranking(window_days=window_days)
+
+
+@router.get(
+    "/{team_id}/metrics",
+    response_model=TeamMetricsResponse,
+    responses=error_responses,
+)
+async def get_team_metrics(
+    team_id: UUID,
+    session: SessionDep,
+) -> TeamMetricsResponse:
+    try:
+        return await TeamMetricsService(session).get(team_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.get("/{team_id}", response_model=TeamResponse, responses=error_responses)
@@ -56,11 +113,14 @@ async def get_team(
     team_id: UUID,
     session: SessionDep,
 ) -> TeamResponse:
+    service = TeamService(session)
     try:
-        team = await TeamService(session).get(team_id)
+        team = await service.get(team_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    return TeamResponse.model_validate(team)
+    response = TeamResponse.model_validate(team)
+    response.members_count = await service.team_members.count_for_team(team_id)
+    return response
 
 
 @router.patch("/{team_id}", response_model=TeamResponse, responses=error_responses)
@@ -68,13 +128,40 @@ async def update_team(
     team_id: UUID,
     payload: TeamUpdate,
     session: SessionDep,
-    _current_employee: CurrentEmployeeDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles(EmployeeRole.ADMIN, EmployeeRole.MANAGER, EmployeeRole.PM)
+        ),
+    ],
 ) -> TeamResponse:
     try:
         team = await TeamService(session).update(team_id, payload)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return TeamResponse.model_validate(team)
+
+
+@router.delete(
+    "/{team_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses,
+)
+async def delete_team(
+    team_id: UUID,
+    session: SessionDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles(EmployeeRole.ADMIN, EmployeeRole.MANAGER, EmployeeRole.PM)
+        ),
+    ],
+) -> Response:
+    try:
+        await TeamService(session).delete(team_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
@@ -87,7 +174,17 @@ async def create_team_member(
     team_id: UUID,
     payload: TeamMemberCreate,
     session: SessionDep,
-    _current_employee: CurrentEmployeeDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles(
+                EmployeeRole.ADMIN,
+                EmployeeRole.MANAGER,
+                EmployeeRole.HR,
+                EmployeeRole.PM,
+            )
+        ),
+    ],
 ) -> TeamMemberResponse:
     try:
         team_member = await TeamMemberService(session).create(team_id, payload)
@@ -107,7 +204,17 @@ async def delete_team_member(
     team_id: UUID,
     employee_id: UUID,
     session: SessionDep,
-    _current_employee: CurrentEmployeeDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles(
+                EmployeeRole.ADMIN,
+                EmployeeRole.MANAGER,
+                EmployeeRole.HR,
+                EmployeeRole.PM,
+            )
+        ),
+    ],
 ) -> Response:
     try:
         await TeamMemberService(session).delete(team_id, employee_id)
@@ -144,7 +251,12 @@ async def get_team_meeting_recommendations(
     team_id: UUID,
     payload: MeetingRecommendationRequest,
     session: SessionDep,
-    _current_employee: CurrentEmployeeDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles(EmployeeRole.ADMIN, EmployeeRole.MANAGER, EmployeeRole.PM)
+        ),
+    ],
 ) -> list[MeetingRecommendationResponse]:
     try:
         return await TeamAvailabilityService(session).recommend_meetings(team_id, payload)

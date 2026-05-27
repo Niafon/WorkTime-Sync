@@ -44,6 +44,7 @@ class ActivityEvent(Base):
     start_dt: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_dt: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+    recurrence_rule: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_recurring: Mapped[bool] = mapped_column(nullable=False)
     is_outside_schedule: Mapped[bool] = mapped_column(nullable=False)
 

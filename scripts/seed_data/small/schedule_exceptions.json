@@ -1,0 +1,30 @@
+[
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000005",
+    "type": "vacation",
+    "start_dt": "{{days_from_now:7}}T00:00:00+00:00",
+    "end_dt": "{{days_from_now:21}}T00:00:00+00:00",
+    "reason": "Запланированный отпуск"
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000007",
+    "type": "sick",
+    "start_dt": "{{days_ago:3}}T00:00:00+00:00",
+    "end_dt": "{{days_from_now:2}}T00:00:00+00:00",
+    "reason": "ОРВИ"
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000008",
+    "type": "vacation",
+    "start_dt": "{{days_ago:5}}T00:00:00+00:00",
+    "end_dt": "{{days_from_now:10}}T00:00:00+00:00",
+    "reason": "Отпуск"
+  },
+  {
+    "employee_id": "00000000-0000-0000-0000-000000000009",
+    "type": "sick_leave",
+    "start_dt": "{{days_from_now:14}}T00:00:00+00:00",
+    "end_dt": "{{days_from_now:18}}T00:00:00+00:00",
+    "reason": "Больничный лист"
+  }
+]

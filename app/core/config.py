@@ -21,7 +21,15 @@ class Settings(BaseSettings):
         validation_alias="JWT_SECRET_KEY",
     )
     jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 60
+    jwt_access_token_expire_minutes: int = 15
+    jwt_refresh_token_expire_days: int = 7
+
+    refresh_cookie_name: str = "wts_refresh"
+    # В dev http://localhost cookie с Secure=True не сохранится. В prod выставить True.
+    cookie_secure: bool = Field(default=False, validation_alias="COOKIE_SECURE")
+    # Same-origin режим через Next rewrites → достаточно "lax".
+    cookie_samesite: str = Field(default="lax", validation_alias="COOKIE_SAMESITE")
+    cookie_domain: str | None = Field(default=None, validation_alias="COOKIE_DOMAIN")
 
     vk_client_id: str = ""
     vk_client_secret: str = ""

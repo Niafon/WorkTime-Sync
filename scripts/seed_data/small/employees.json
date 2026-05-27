@@ -1,0 +1,84 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "email": "test@example.com",
+    "password": "pass1234",
+    "full_name": "Тестовый Администратор",
+    "role": "manager",
+    "position": "Руководитель",
+    "timezone": "Europe/Moscow",
+    "work_format": "hybrid"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000002",
+    "email": "vladimir.orlov@worktime.example",
+    "full_name": "Владимир Орлов",
+    "role": "manager",
+    "position": "Тимлид backend",
+    "timezone": "Europe/Moscow",
+    "work_format": "hybrid"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000003",
+    "email": "polina.makarova@worktime.example",
+    "full_name": "Полина Макарова",
+    "role": "pm",
+    "position": "Product Manager",
+    "timezone": "Europe/Moscow",
+    "work_format": "remote"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000004",
+    "email": "natalya.vorobyeva@worktime.example",
+    "full_name": "Наталья Воробьёва",
+    "role": "hr",
+    "position": "HR",
+    "timezone": "Europe/Moscow",
+    "work_format": "office"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000005",
+    "email": "mikhail.petrov@worktime.example",
+    "full_name": "Михаил Петров",
+    "role": "employee",
+    "position": "Backend-разработчик",
+    "timezone": "Europe/Moscow",
+    "work_format": "remote"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000006",
+    "email": "anna.sidorova@worktime.example",
+    "full_name": "Анна Сидорова",
+    "role": "employee",
+    "position": "Frontend-разработчик",
+    "timezone": "Europe/Kaliningrad",
+    "work_format": "remote"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000007",
+    "email": "ekaterina.volkova@worktime.example",
+    "full_name": "Екатерина Волкова",
+    "role": "employee",
+    "position": "QA-инженер",
+    "timezone": "Europe/Moscow",
+    "work_format": "hybrid"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000008",
+    "email": "dmitry.morozov@worktime.example",
+    "full_name": "Дмитрий Морозов",
+    "role": "employee",
+    "position": "DevOps",
+    "timezone": "Asia/Yekaterinburg",
+    "work_format": "remote"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000009",
+    "email": "tatyana.kozlova@worktime.example",
+    "full_name": "Татьяна Козлова",
+    "role": "analyst",
+    "position": "Бизнес-аналитик",
+    "timezone": "Europe/London",
+    "work_format": "remote"
+  }
+]

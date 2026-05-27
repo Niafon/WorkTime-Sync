@@ -10,6 +10,7 @@ from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.types import UserDefinedType
 
 from alembic import op
 
@@ -19,7 +20,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
-class Vector(sa.UserDefinedType[Any]):
+class Vector(UserDefinedType[Any]):
     cache_ok = True
 
     def __init__(self, dimension: int) -> None:

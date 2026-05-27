@@ -28,6 +28,9 @@ def clean_database() -> None:
         connection.execute(
             """
             truncate table
+                notifications,
+                roadmap_items,
+                schedule_confirmation_requests,
                 activity_events,
                 employee_metrics,
                 schedule_exceptions,
