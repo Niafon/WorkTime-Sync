@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics.availability import WorkScheduleWindow
@@ -29,6 +30,7 @@ from app.repositories.employee_metrics import EmployeeMetricRepository
 from app.repositories.employees import EmployeeRepository
 from app.repositories.schedule_exceptions import ScheduleExceptionRepository
 from app.repositories.work_schedules import WorkScheduleRepository
+from app.services.exceptions import AIServiceError
 from app.services.notification_triggers import maybe_emit_for_metric
 from app.services.notifications import NotificationService
 
@@ -64,19 +66,35 @@ class MetricCalculatorService:
         *,
         today: date | None = None,
         window_days: int = DEFAULT_WINDOW_DAYS,
+        batch_size: int = 500,
     ) -> int:
+        """Пересчёт метрик всем сотрудникам страницами по `batch_size`.
+
+        Раньше `employees.list()` загружал ВСЕХ в память — на 10k+ это OOM.
+        Сейчас идёт пагинация: один batch обработали → коммит → следующий.
+        Промежуточный commit делает работу безопасной к рестарту посередине.
+        """
         reference_date = today or datetime.now(UTC).date()
         batch_taken_at = datetime.now(UTC)
-        employees = await self.employees.list()
-        for employee in employees:
-            await self._recompute_for_employee(
-                employee=employee,
-                today=reference_date,
-                window_days=window_days,
-                taken_at=batch_taken_at,
-            )
-        await self.session.commit()
-        return len(employees)
+        total = 0
+        skip = 0
+        while True:
+            batch = await self.employees.list(skip=skip, limit=batch_size)
+            if not batch:
+                break
+            for employee in batch:
+                await self._recompute_for_employee(
+                    employee=employee,
+                    today=reference_date,
+                    window_days=window_days,
+                    taken_at=batch_taken_at,
+                )
+            await self.session.commit()
+            total += len(batch)
+            if len(batch) < batch_size:
+                break
+            skip += batch_size
+        return total
 
     async def recompute_for_employee_id(
         self,
@@ -176,7 +194,9 @@ class MetricCalculatorService:
         await self.snapshots.add(_snapshot_from_metric(saved, taken_at))
 
         # Smart-уведомления (§16 п.6): triggered by metric, not by user action.
-        # Сбои здесь не должны валить пересчёт метрик — поэтому ловим всё.
+        # Сбои нотификаций (LLM-обогащение, недоступный recipient) не должны
+        # валить пересчёт метрик, поэтому ловим business-level ошибки. KeyboardInterrupt
+        # /SystemExit/asyncio.CancelledError проходят дальше — это правильно.
         try:
             await maybe_emit_for_metric(
                 employee=employee,
@@ -185,7 +205,7 @@ class MetricCalculatorService:
                 notifications=self.notifications,
                 now=taken_at,
             )
-        except Exception:  # noqa: BLE001
+        except (ValueError, RuntimeError, AIServiceError, SQLAlchemyError):
             import logging
 
             logging.getLogger(__name__).exception(

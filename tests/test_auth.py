@@ -91,9 +91,14 @@ def test_decode_expired_access_token_raises() -> None:
 
 @pytest.mark.asyncio
 async def test_vk_auth_service_creates_employee_and_token() -> None:
+    # CSRF-защита (HMAC-state) добавлена в authenticate_vk_code — берём
+    # подписанный state через тот же модуль, который его и проверяет.
+    from app.auth.vk_oauth import build_vk_oauth_state
+
+    state = build_vk_oauth_state()
     async with AsyncSessionLocal() as session:
         issued = await AuthService(session, FakeVKOAuthClient()).authenticate_vk_code(
-            "valid-code"
+            "valid-code", state
         )
 
     access_payload = decode_access_token(issued.response.token)

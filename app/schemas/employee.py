@@ -1,15 +1,25 @@
 from datetime import date, datetime, time
 from typing import Literal
 from uuid import UUID
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 from app.core.employment import EmploymentType
 from app.core.roles import EmployeeRole
 from app.models.employee import Employee
 from app.models.schedule_confirmation_request import CONFIRMATION_STATUS_PENDING
 from app.schemas.employee_metric import EmployeeMetricResponse
+
+
+def _validate_timezone_name(value: str) -> str:
+    try:
+        ZoneInfo(value)
+    except (KeyError, ValueError, ZoneInfoNotFoundError) as exc:
+        raise ValueError(
+            f"unknown timezone {value!r}; expected IANA name like 'Europe/Moscow'"
+        ) from exc
+    return value
 
 TIMEZONE_CITY_LABELS_RU: dict[str, str] = {
     "Europe/Moscow": "Москва",
@@ -32,11 +42,16 @@ TIMEZONE_CITY_LABELS_RU: dict[str, str] = {
 
 
 def _build_timezone_label(tz_name: str, reference_at: datetime) -> str:
-    """Формат: 'UTC+3 Москва' / 'UTC+5 Екатеринбург' / 'UTC' для неизвестных."""
+    """Формат: 'UTC+3 Москва' / 'UTC+5 Екатеринбург' / 'UTC' для неизвестных.
+
+    Если tz_name не известен системе (например пришёл "Moscow" вместо
+    "Europe/Moscow" из плохого импорта) — возвращаем только city, не маскируя
+    другие баги бэка, как делал прежний `except Exception`.
+    """
     city = TIMEZONE_CITY_LABELS_RU.get(tz_name, tz_name.split("/")[-1].replace("_", " "))
     try:
         offset = ZoneInfo(tz_name).utcoffset(reference_at)
-    except Exception:
+    except (KeyError, ValueError, ZoneInfoNotFoundError):
         return city
     if offset is None:
         return city
@@ -59,6 +74,8 @@ class EmployeeCreate(BaseModel):
     work_format: str
     employment_type: EmploymentType = EmploymentType.FULL_TIME
 
+    _check_tz = field_validator("timezone")(lambda cls, v: _validate_timezone_name(v))
+
 
 class EmployeeUpdate(BaseModel):
     vk_user_id: str | None = None
@@ -70,6 +87,13 @@ class EmployeeUpdate(BaseModel):
     timezone: str | None = None
     work_format: str | None = None
     employment_type: EmploymentType | None = None
+
+    @field_validator("timezone")
+    @classmethod
+    def _check_tz(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_timezone_name(value)
 
 
 class EmployeeResponse(BaseModel):
@@ -133,6 +157,8 @@ class EmployeeFullScheduleInput(BaseModel):
     end_time: time
     timezone: str
 
+    _check_tz = field_validator("timezone")(lambda cls, v: _validate_timezone_name(v))
+
 
 class EmployeeFullTeamInput(BaseModel):
     team_id: UUID
@@ -151,3 +177,5 @@ class EmployeeFullCreate(BaseModel):
     work_format: Literal["office", "remote", "hybrid"]
     schedule: EmployeeFullScheduleInput
     team: EmployeeFullTeamInput | None = None
+
+    _check_tz = field_validator("timezone")(lambda cls, v: _validate_timezone_name(v))

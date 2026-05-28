@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from dateutil.rrule import rrulestr
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
 class ActivityEventCreate(BaseModel):
@@ -31,6 +31,17 @@ class ActivityEventCreate(BaseModel):
         except (ValueError, TypeError) as exc:
             raise ValueError(f"invalid recurrence_rule: {exc}") from exc
         return value
+
+    @model_validator(mode="after")
+    def _check_time_window(self) -> "ActivityEventCreate":
+        # Раньше эту проверку делал только CSV-импортер; через POST
+        # /events/manual мог прилетать event с end_dt <= start_dt и ломать
+        # аналитику (is_event_outside_schedule считал бы его «нулевым»).
+        # Текст ошибки совпадает с тем, что генерировал импортер — на него
+        # ссылаются интеграционные тесты.
+        if self.end_dt <= self.start_dt:
+            raise ValueError("start_dt must be earlier than end_dt")
+        return self
 
 
 class ActivityEventImportResult(BaseModel):

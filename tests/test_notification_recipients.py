@@ -26,6 +26,8 @@ class FakeEmployee:
 @dataclass
 class FakeEmployeesRepo:
     employees: dict[UUID, FakeEmployee] = field(default_factory=dict)
+    # Заполняется тестами: id сотрудника → id команд, в которых он состоит.
+    team_membership: dict[UUID, list[UUID]] = field(default_factory=dict)
 
     async def get(self, employee_id: UUID) -> FakeEmployee | None:
         return self.employees.get(employee_id)
@@ -33,8 +35,29 @@ class FakeEmployeesRepo:
     async def list_by_ids(self, ids: list[UUID]) -> list[FakeEmployee]:
         return [self.employees[i] for i in ids if i in self.employees]
 
-    async def list(self, **_: object) -> list[FakeEmployee]:
-        return list(self.employees.values())
+    async def list(self, *, role: str | None = None, **_: object) -> list[FakeEmployee]:
+        items = list(self.employees.values())
+        if role is not None:
+            items = [e for e in items if e.role == role]
+        return items
+
+    async def find_first_with_role_in_teams_of(
+        self, *, employee_id: UUID, role: str
+    ) -> FakeEmployee | None:
+        # Эмулируем JOIN: ищем сотрудника с указанной ролью в любой команде,
+        # к которой принадлежит employee_id (без самого employee_id).
+        teams = set(self.team_membership.get(employee_id, []))
+        if not teams:
+            return None
+        for other_id, other_teams in self.team_membership.items():
+            if other_id == employee_id:
+                continue
+            other = self.employees.get(other_id)
+            if other is None or other.role != role:
+                continue
+            if teams.intersection(other_teams):
+                return other
+        return None
 
 
 @dataclass
@@ -58,6 +81,7 @@ def _build(*emps: FakeEmployee, team_id: UUID | None = None) -> tuple[
         tm_repo.by_team[team_id] = [e.id for e in emps]
         for emp in emps:
             tm_repo.by_employee[emp.id] = [team_id]
+            e_repo.team_membership[emp.id] = [team_id]
     resolver = RecipientResolver(employees=e_repo, team_members=tm_repo)
     return resolver, e_repo, tm_repo
 

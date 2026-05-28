@@ -34,8 +34,15 @@ def days_since_update(
     today: date,
     confirmed_at: datetime | None = None,
 ) -> int:
+    """Дней между сегодня и последним обновлением графика.
+
+    Если `last_updated_at` или `confirmed_at` оказались в будущем (битая дата
+    при импорте), считаем их как «сегодня». Без этого Ai становился 1.0 у
+    сотрудника с future-датой — система ошибочно считала график идеальным.
+    """
     reference = max(last_updated_at, confirmed_at) if confirmed_at else last_updated_at
-    return max(0, (today - reference.date()).days)
+    reference_date = min(reference.date(), today)
+    return max(0, (today - reference_date).days)
 
 
 def actuality_score(days_since_update_value: int) -> float:

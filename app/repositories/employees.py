@@ -116,6 +116,30 @@ class EmployeeRepository:
         )
         return list(result.scalars().all())
 
+    async def find_first_with_role_in_teams_of(
+        self, *, employee_id: UUID, role: str
+    ) -> Employee | None:
+        """Один JOIN-запрос: ищет первого сотрудника с указанной ролью в любой
+        из команд, к которым принадлежит `employee_id`. Сам сотрудник исключён.
+
+        Заменяет цикл `for team_id in teams: list_members; list_by_ids` (N+1).
+        """
+        tm_self = TeamMember.__table__.alias("tm_self")
+        tm_target = TeamMember.__table__.alias("tm_target")
+        stmt = (
+            select(Employee)
+            .join(tm_target, tm_target.c.employee_id == Employee.id)
+            .join(tm_self, tm_self.c.team_id == tm_target.c.team_id)
+            .where(
+                tm_self.c.employee_id == employee_id,
+                Employee.role == role,
+                Employee.id != employee_id,
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def update(self, employee: Employee, values: dict[str, object]) -> Employee:
         for field, value in values.items():
             setattr(employee, field, value)

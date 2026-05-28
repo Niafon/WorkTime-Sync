@@ -180,5 +180,14 @@ async def logout(
 @router.get("/me", response_model=UserResponse, responses=error_responses)
 async def get_current_employee_profile(
     current_employee: CurrentEmployeeDep,
+    session: SessionDep,
 ) -> UserResponse:
+    # Заодно промоутим отложенные уведомления, у которых вышел deferred_until,
+    # чтобы их доставка не зависела от того, открыл ли пользователь
+    # страницу /notifications. /auth/me дёргается при каждом приходе на сайт.
+    from app.repositories.notifications import NotificationRepository
+
+    promoted = await NotificationRepository(session).promote_due_deferred(current_employee.id)
+    if promoted:
+        await session.commit()
     return UserResponse.from_employee(current_employee)

@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db_session, require_roles
@@ -67,8 +67,10 @@ async def create_team(
 @router.get("", response_model=list[TeamResponse])
 async def list_teams(
     session: SessionDep,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> list[TeamResponse]:
-    teams_with_counts = await TeamService(session).list_with_counts()
+    teams_with_counts = await TeamService(session).list_with_counts(skip=skip, limit=limit)
     items: list[TeamResponse] = []
     for team, count in teams_with_counts:
         item = TeamResponse.model_validate(team)

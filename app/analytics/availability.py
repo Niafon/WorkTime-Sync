@@ -63,19 +63,55 @@ def is_event_outside_schedule(
     end_dt: datetime,
     schedule: WorkScheduleWindow,
 ) -> bool:
-    # TODO(post-MVP): встречи через полночь (22:00→01:30) сейчас считаются
-    # outside по правилу `start.date() != end.date()`. Для офисного 9-18 это
-    # корректно (поздняя встреча = переработка). Для ночных смен и команд с
-    # разными ТЗ — занижает фактическую активность. Если потребуется
-    # поддержка ночных графиков, нужно разрешить window с end_time < start_time
-    # и сравнивать интервал в локальной TZ сотрудника, а не по календарной дате.
+    """True если хотя бы часть события выпадает за рабочий график.
+
+    Раньше встречи через полночь (23:00→01:00) всегда считались outside, потому
+    что `start.date() != end.date()`. Это занижало Ci для ночных смен и команд
+    с разными ТЗ. Теперь событие разбивается на per-day сегменты и проверяется
+    по `schedule[weekday]` дня каждого сегмента.
+    """
     if start_dt >= end_dt:
         return True
-    if start_dt.date() != end_dt.date():
-        return True
-    if start_dt.weekday() not in schedule.work_days:
-        return True
-    return start_dt.time() < schedule.start_time or end_dt.time() > schedule.end_time
+    for segment_start, segment_end in _split_by_day(start_dt, end_dt):
+        if segment_start.weekday() not in schedule.work_days:
+            return True
+        if segment_start.time() < schedule.start_time:
+            return True
+        # end == 00:00 след. дня — это валидное окончание текущего сегмента,
+        # сравнение делаем на end_time как «строго после» (exclusive).
+        if segment_end.time() != _MIDNIGHT and segment_end.time() > schedule.end_time:
+            return True
+        if segment_end.time() == _MIDNIGHT and schedule.end_time < _ALMOST_MIDNIGHT:
+            # Сегмент дошёл до полуночи, а график заканчивается раньше — outside.
+            return True
+    return False
+
+
+_MIDNIGHT = time(0, 0)
+_ALMOST_MIDNIGHT = time(23, 59, 59)
+
+
+def _split_by_day(
+    start_dt: datetime, end_dt: datetime
+) -> list[tuple[datetime, datetime]]:
+    """Разбивает [start, end] на куски, каждый внутри одного календарного дня.
+
+    Для start=23:00 пн и end=01:00 вт возвращает
+    [(23:00 пн, 00:00 вт), (00:00 вт, 01:00 вт)].
+    """
+    if start_dt.date() == end_dt.date():
+        return [(start_dt, end_dt)]
+    segments: list[tuple[datetime, datetime]] = []
+    cursor = start_dt
+    while cursor.date() < end_dt.date():
+        next_midnight = datetime.combine(
+            cursor.date() + timedelta(days=1), _MIDNIGHT, tzinfo=cursor.tzinfo
+        )
+        segments.append((cursor, next_midnight))
+        cursor = next_midnight
+    if cursor < end_dt:
+        segments.append((cursor, end_dt))
+    return segments
 
 
 def calculate_employee_availability(

@@ -16,8 +16,13 @@ class TeamRepository:
         await self.session.refresh(team)
         return team
 
-    async def list(self) -> list[Team]:
-        result = await self.session.execute(select(Team).order_by(Team.created_at.desc()))
+    async def list(self, *, skip: int = 0, limit: int | None = None) -> list[Team]:
+        stmt = select(Team).order_by(Team.created_at.desc())
+        if skip:
+            stmt = stmt.offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def get(self, team_id: UUID) -> Team | None:

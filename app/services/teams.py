@@ -53,11 +53,13 @@ class TeamService:
         await self.session.refresh(team)
         return team
 
-    async def list(self) -> list[Team]:
-        return await self.teams.list()
+    async def list(self, *, skip: int = 0, limit: int | None = None) -> list[Team]:
+        return await self.teams.list(skip=skip, limit=limit)
 
-    async def list_with_counts(self) -> list[tuple[Team, int]]:
-        teams = await self.teams.list()
+    async def list_with_counts(
+        self, *, skip: int = 0, limit: int | None = None
+    ) -> list[tuple[Team, int]]:
+        teams = await self.teams.list(skip=skip, limit=limit)
         counts = await self.team_members.counts_by_team([t.id for t in teams])
         return [(t, counts.get(t.id, 0)) for t in teams]
 

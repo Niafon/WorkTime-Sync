@@ -25,14 +25,9 @@ cryptography==44.0.0
 httpx==0.28.1
 authlib==1.4.0
 
-# Background jobs
-redis==5.2.1
-celery==5.4.0
-
 # Date / time helpers
 python-dateutil==2.9.0.post0
 pytz==2024.2
-tiktoken==0.8.0
 
 # Files / CSV / Excel fallback imports
 aiofiles==24.1.0

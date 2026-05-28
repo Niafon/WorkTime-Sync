@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentEmployeeDep, get_db_session, require_roles
-from app.core.roles import EmployeeRole
+from app.core.roles import MANAGEMENT_ROLES, EmployeeRole
 from app.importers.activity_events import (
     ActivityEventImportValidationError,
     parse_csv_activity_events,
@@ -41,9 +41,7 @@ async def import_activity_events_csv(
     file: CsvFileDep,
     _current_employee: Annotated[
         Employee,
-        Depends(
-            require_roles(EmployeeRole.ADMIN, EmployeeRole.HR, EmployeeRole.PM)
-        ),
+        Depends(require_roles(*MANAGEMENT_ROLES)),
     ],
     source: Annotated[
         str | None,
@@ -76,9 +74,7 @@ async def import_activity_events_json(
     session: SessionDep,
     _current_employee: Annotated[
         Employee,
-        Depends(
-            require_roles(EmployeeRole.ADMIN, EmployeeRole.HR, EmployeeRole.PM)
-        ),
+        Depends(require_roles(*MANAGEMENT_ROLES)),
     ],
     source: Annotated[
         str | None,

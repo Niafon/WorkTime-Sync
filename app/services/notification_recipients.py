@@ -17,15 +17,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
-
 from app.core.roles import EmployeeRole
 from app.models.employee import Employee
 from app.models.notification import (
     NOTIFICATION_SEVERITY_CRITICAL,
     NOTIFICATION_SEVERITY_HIGH,
 )
-from app.models.team_member import TeamMember
 from app.repositories.employees import EmployeeRepository
 from app.repositories.team_members import TeamMemberRepository
 
@@ -97,27 +94,19 @@ class RecipientResolver:
         return _dedup_preserve_order(recipients)
 
     async def _pick_manager_for_employee(self, employee_id: UUID) -> Employee | None:
-        """Находит первого руководителя в любой из команд сотрудника.
-
-        Без сложного ранжирования — для MVP достаточно «первый найденный».
-        """
-        team_ids = await self.team_members.list_team_ids_for_employee(employee_id)
-        for team_id in team_ids:
-            member_ids = await self.team_members.list_employee_ids_for_team(team_id)
-            members = await self.employees.list_by_ids(member_ids)
-            manager = _first_with_role(members, EmployeeRole.MANAGER)
-            if manager is not None and manager.id != employee_id:
-                return manager
-        return None
+        """Один JOIN-запрос через репозиторий вместо N+1 (см. find_first_with_role_in_teams_of)."""
+        return await self.employees.find_first_with_role_in_teams_of(
+            employee_id=employee_id, role=EmployeeRole.MANAGER
+        )
 
     async def _pick_role(
         self, role: EmployeeRole, *, exclude_ids: set[UUID]
     ) -> Employee | None:
-        # EmployeeRepository.list не умеет фильтровать по role напрямую;
-        # для MVP компании из сотен сотрудников фильтрация в памяти приемлема.
-        employees = await self.employees.list()
-        for emp in employees:
-            if emp.role == role and emp.id not in exclude_ids:
+        # Фильтрация по role на уровне БД — без неё на 10к+ сотрудников был OOM
+        # (репозиторий загружал всё в память и фильтровал в Python).
+        candidates = await self.employees.list(role=role, limit=50)
+        for emp in candidates:
+            if emp.id not in exclude_ids:
                 return emp
         return None
 
