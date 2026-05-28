@@ -1,7 +1,7 @@
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -15,16 +15,25 @@ from app.models.employee import Employee
 from app.repositories.change_history import ChangeHistoryRepository
 from app.schemas.change_history import ChangeHistoryResponse
 from app.schemas.common import ErrorResponse
-from app.schemas.employee import EmployeeCreate, EmployeeResponse, EmployeeUpdate
+from app.schemas.employee import (
+    EmployeeCreate,
+    EmployeeFullCreate,
+    EmployeeResponse,
+    EmployeeUpdate,
+)
 from app.schemas.schedule_confirmation import (
+    BulkScheduleConfirmationRequestCreate,
+    BulkScheduleConfirmationRequestResponse,
     ScheduleConfirmationRequestCreate,
     ScheduleConfirmationRequestResponse,
     ScheduleConfirmDeclineRequest,
     ScheduleConfirmResponse,
 )
+from app.schemas.schedule_diagnostics import ScheduleDiagnosticsResponse
 from app.schemas.schedule_exception import (
     ScheduleExceptionCreate,
     ScheduleExceptionResponse,
+    ScheduleExceptionUpdate,
 )
 from app.schemas.work_schedule import WorkScheduleCreate, WorkScheduleResponse
 from app.services.audit import ENTITY_SCHEDULE_EXCEPTION, ENTITY_WORK_SCHEDULE
@@ -36,6 +45,7 @@ from app.services.schedule_confirmations import (
 from app.services.schedule_confirmations import (
     to_response as schedule_confirmation_to_response,
 )
+from app.services.schedule_diagnostics import ScheduleDiagnosticsService
 from app.services.schedule_exceptions import ScheduleExceptionService
 from app.services.work_schedules import WorkScheduleService
 
@@ -69,6 +79,29 @@ async def create_employee(
     return EmployeeResponse.from_employee(employee)
 
 
+@router.post(
+    "/full",
+    response_model=EmployeeResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=error_responses,
+)
+async def create_employee_full(
+    payload: EmployeeFullCreate,
+    session: SessionDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(require_roles(EmployeeRole.ADMIN, EmployeeRole.HR)),
+    ],
+) -> EmployeeResponse:
+    try:
+        employee = await EmployeeService(session).create_full(payload)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except InvalidOperationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return EmployeeResponse.from_employee(employee)
+
+
 EmployeeCategory = Literal[
     "actual",
     "outdated",
@@ -85,18 +118,34 @@ EmployeeCategory = Literal[
 @router.get("", response_model=list[EmployeeResponse])
 async def list_employees(
     session: SessionDep,
+    response: Response,
     team_id: UUID | None = Query(default=None),
     risk_level: Literal["low", "medium", "high", "critical"] | None = Query(default=None),
     work_format: Literal["office", "remote", "hybrid"] | None = Query(default=None),
     search: str | None = Query(default=None, min_length=1, max_length=200),
     category: EmployeeCategory | None = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int | None = Query(default=None, ge=1, le=500),
 ) -> list[EmployeeResponse]:
-    employees = await EmployeeService(session).list(
+    service = EmployeeService(session)
+    if limit is not None:
+        # Пагинированный режим: один доп. count-запрос, X-Total-Count в headers.
+        total = await service.count(
+            team_id=team_id,
+            risk_level=risk_level,
+            work_format=work_format,
+            search=search,
+            category=category,
+        )
+        response.headers["X-Total-Count"] = str(total)
+    employees = await service.list(
         team_id=team_id,
         risk_level=risk_level,
         work_format=work_format,
         search=search,
         category=category,
+        skip=skip,
+        limit=limit,
     )
     return [EmployeeResponse.from_employee(employee) for employee in employees]
 
@@ -186,6 +235,29 @@ async def get_active_employee_schedule(
 
 
 @router.get(
+    "/{employee_id}/schedule-diagnostics",
+    response_model=ScheduleDiagnosticsResponse,
+    responses=error_responses,
+)
+async def get_employee_schedule_diagnostics(
+    employee_id: UUID,
+    session: SessionDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles_or_self_employee(
+                EmployeeRole.ADMIN, EmployeeRole.HR, EmployeeRole.MANAGER
+            )
+        ),
+    ],
+) -> ScheduleDiagnosticsResponse:
+    try:
+        return await ScheduleDiagnosticsService(session).get_for_employee(employee_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get(
     "/{employee_id}/schedules/history",
     response_model=list[ChangeHistoryResponse],
     responses=error_responses,
@@ -258,6 +330,62 @@ async def list_employee_exceptions(
     ]
 
 
+@router.patch(
+    "/{employee_id}/exceptions/{exception_id}",
+    response_model=ScheduleExceptionResponse,
+    responses=error_responses,
+)
+async def update_employee_exception(
+    employee_id: UUID,
+    exception_id: UUID,
+    payload: ScheduleExceptionUpdate,
+    session: SessionDep,
+    current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles_or_self_employee(
+                EmployeeRole.ADMIN, EmployeeRole.HR, EmployeeRole.MANAGER
+            )
+        ),
+    ],
+) -> ScheduleExceptionResponse:
+    try:
+        schedule_exception = await ScheduleExceptionService(session).update(
+            employee_id, exception_id, payload, changed_by=current_employee.id
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except InvalidOperationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return ScheduleExceptionResponse.model_validate(schedule_exception)
+
+
+@router.delete(
+    "/{employee_id}/exceptions/{exception_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses,
+)
+async def delete_employee_exception(
+    employee_id: UUID,
+    exception_id: UUID,
+    session: SessionDep,
+    current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles_or_self_employee(
+                EmployeeRole.ADMIN, EmployeeRole.HR, EmployeeRole.MANAGER
+            )
+        ),
+    ],
+) -> None:
+    try:
+        await ScheduleExceptionService(session).delete(
+            employee_id, exception_id, changed_by=current_employee.id
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
 @router.get(
     "/{employee_id}/exceptions/history",
     response_model=list[ChangeHistoryResponse],
@@ -325,6 +453,34 @@ async def confirm_employee_schedule(
         return await ScheduleConfirmationService(session).confirm(employee_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post(
+    "/schedule/confirmation-requests/bulk",
+    response_model=BulkScheduleConfirmationRequestResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        **error_responses,
+        status.HTTP_403_FORBIDDEN: {"model": ErrorResponse},
+    },
+)
+async def create_bulk_schedule_confirmation_requests(
+    payload: BulkScheduleConfirmationRequestCreate,
+    session: SessionDep,
+    current_employee: Annotated[
+        Employee,
+        Depends(require_roles(*MANAGEMENT_ROLES)),
+    ],
+) -> BulkScheduleConfirmationRequestResponse:
+    created, skipped = await ScheduleConfirmationService(session).create_bulk(
+        employee_ids=payload.employee_ids,
+        requested_by_id=current_employee.id,
+        reason=payload.reason,
+    )
+    return BulkScheduleConfirmationRequestResponse(
+        created=[schedule_confirmation_to_response(request) for request in created],
+        skipped_employee_ids=skipped,
+    )
 
 
 @router.post(

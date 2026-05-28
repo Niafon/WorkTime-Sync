@@ -1,11 +1,14 @@
-from datetime import datetime
+from datetime import date, datetime, time
+from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
+from app.core.employment import EmploymentType
 from app.core.roles import EmployeeRole
 from app.models.employee import Employee
+from app.models.schedule_confirmation_request import CONFIRMATION_STATUS_PENDING
 from app.schemas.employee_metric import EmployeeMetricResponse
 
 TIMEZONE_CITY_LABELS_RU: dict[str, str] = {
@@ -51,8 +54,10 @@ class EmployeeCreate(BaseModel):
     full_name: str
     email: EmailStr | None = None
     position: str | None = None
+    hire_date: date | None = None
     timezone: str
     work_format: str
+    employment_type: EmploymentType = EmploymentType.FULL_TIME
 
 
 class EmployeeUpdate(BaseModel):
@@ -61,8 +66,10 @@ class EmployeeUpdate(BaseModel):
     full_name: str | None = None
     email: EmailStr | None = None
     position: str | None = None
+    hire_date: date | None = None
     timezone: str | None = None
     work_format: str | None = None
+    employment_type: EmploymentType | None = None
 
 
 class EmployeeResponse(BaseModel):
@@ -72,19 +79,22 @@ class EmployeeResponse(BaseModel):
     full_name: str
     email: EmailStr | None
     position: str | None
+    hire_date: date | None
     timezone: str
     work_format: str
+    employment_type: EmploymentType
     created_at: datetime
     updated_at: datetime
     team_ids: list[UUID] = []
     metric: EmployeeMetricResponse | None = None
     timezone_label: str | None = None
+    has_pending_confirmation: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
     @classmethod
     def from_employee(cls, employee: Employee) -> "EmployeeResponse":
-        """Сериализация с подтянутыми relations (metrics, team_members).
+        """Сериализация с подтянутыми relations (metrics, team_members, confirmation_requests).
 
         Подразумевает, что relations уже подгружены selectinload-ом, иначе
         async-сессия не сможет лениво их загрузить и упадёт.
@@ -94,6 +104,9 @@ class EmployeeResponse(BaseModel):
             if employee.metrics is not None
             else None
         )
+        has_pending = any(
+            req.status == CONFIRMATION_STATUS_PENDING for req in employee.confirmation_requests
+        )
         return cls(
             id=employee.id,
             vk_user_id=employee.vk_user_id,
@@ -101,11 +114,40 @@ class EmployeeResponse(BaseModel):
             full_name=employee.full_name,
             email=employee.email,
             position=employee.position,
+            hire_date=employee.hire_date,
             timezone=employee.timezone,
             work_format=employee.work_format,
+            employment_type=EmploymentType(employee.employment_type),
             created_at=employee.created_at,
             updated_at=employee.updated_at,
             team_ids=[member.team_id for member in employee.team_members],
             metric=metric,
             timezone_label=_build_timezone_label(employee.timezone, employee.updated_at),
+            has_pending_confirmation=has_pending,
         )
+
+
+class EmployeeFullScheduleInput(BaseModel):
+    work_days: list[int]
+    start_time: time
+    end_time: time
+    timezone: str
+
+
+class EmployeeFullTeamInput(BaseModel):
+    team_id: UUID
+    role_in_team: Literal["lead", "pm", "analyst", "member"]
+
+
+class EmployeeFullCreate(BaseModel):
+    vk_user_id: str | None = None
+    role: EmployeeRole
+    full_name: str
+    email: EmailStr | None = None
+    position: str | None = None
+    hire_date: date | None = None
+    employment_type: EmploymentType
+    timezone: str
+    work_format: Literal["office", "remote", "hybrid"]
+    schedule: EmployeeFullScheduleInput
+    team: EmployeeFullTeamInput | None = None

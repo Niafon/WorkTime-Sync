@@ -34,7 +34,7 @@ from app.schemas.availability import (
 )
 from app.services.exceptions import InvalidOperationError, NotFoundError
 
-EXCLUDED_EXCEPTION_TYPES = {"vacation", "sick", "sick_leave"}
+EXCLUDED_EXCEPTION_TYPES = {"vacation", "sick", "sick_leave", "personal_hours"}
 
 
 class TeamAvailabilityService:

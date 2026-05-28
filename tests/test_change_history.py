@@ -79,6 +79,7 @@ def _schedule_payload(employee_id: str, *, is_active: bool = True) -> dict:
         "start_time": time(9, 0).isoformat(),
         "end_time": time(18, 0).isoformat(),
         "timezone": "Europe/Moscow",
+        "work_format": "office",
         "last_updated_at": datetime.now(UTC).isoformat(),
         "is_active": is_active,
     }
@@ -246,7 +247,7 @@ async def test_history_filter_by_entity_type(
         f"/api/v1/employees/{target_id}/exceptions",
         json={
             "employee_id": target_id,
-            "type": "sick",
+            "type": "sick_leave",
             "start_dt": now_iso,
             "end_dt": now_iso,
             "reason": None,

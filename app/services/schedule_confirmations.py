@@ -42,6 +42,44 @@ class ScheduleConfirmationService:
         await self.session.commit()
         return ScheduleConfirmResponse(confirmed_at=now, closed_request_ids=closed_ids)
 
+    async def create_bulk(
+        self,
+        employee_ids: list[UUID],
+        requested_by_id: UUID | None,
+        reason: str | None,
+    ) -> tuple[list[ScheduleConfirmationRequest], list[UUID]]:
+        """Создаёт pending-запросы пачкой. Пропускает employee_id, у которых уже есть pending.
+
+        Returns (created, skipped_ids) — created содержит только реально созданные запросы.
+        """
+        created: list[ScheduleConfirmationRequest] = []
+        skipped: list[UUID] = []
+        for employee_id in employee_ids:
+            if await self.employees.get(employee_id) is None:
+                skipped.append(employee_id)
+                continue
+            existing = await self.requests.get_pending_for_employee(employee_id)
+            if existing is not None:
+                skipped.append(employee_id)
+                continue
+            request = ScheduleConfirmationRequest(
+                employee_id=employee_id,
+                requested_by_id=requested_by_id,
+                reason=reason,
+                status=CONFIRMATION_STATUS_PENDING,
+            )
+            request = await self.requests.create(request)
+            created.append(request)
+        if created:
+            await self.session.commit()
+            # Перечитываем созданные запросы со всеми relations для корректной сериализации.
+            loaded: list[ScheduleConfirmationRequest] = []
+            for req in created:
+                fresh = await self.requests.get_by_id(req.id)
+                loaded.append(fresh or req)
+            created = loaded
+        return created, skipped
+
     async def create_request(
         self,
         employee_id: UUID,

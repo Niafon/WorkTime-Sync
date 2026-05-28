@@ -33,3 +33,13 @@ class ScheduleConfirmationRequestResponse(BaseModel):
 class ScheduleConfirmResponse(BaseModel):
     confirmed_at: datetime
     closed_request_ids: list[UUID]
+
+
+class BulkScheduleConfirmationRequestCreate(BaseModel):
+    employee_ids: list[UUID]
+    reason: str | None = None
+
+
+class BulkScheduleConfirmationRequestResponse(BaseModel):
+    created: list[ScheduleConfirmationRequestResponse]
+    skipped_employee_ids: list[UUID]

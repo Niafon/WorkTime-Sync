@@ -15,10 +15,9 @@ from app.analytics.roadmap_priority import (
     build_reason,
     compute_priority,
 )
-from app.core.roles import EmployeeRole
 from app.models.employee import Employee
+from app.models.employee_metric import EmployeeMetric
 from app.models.roadmap_item import (
-    ROADMAP_OPEN_STATUSES,
     ROADMAP_STATUS_ACKNOWLEDGED,
     ROADMAP_STATUS_COMPLETED,
     ROADMAP_STATUS_DEFERRED,

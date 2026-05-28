@@ -6,9 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.analytics.metrics import ACTUALITY_DECAY_DAYS
 from app.models.employee import Employee
 from app.models.employee_metric import EmployeeMetric
+from app.models.schedule_exception import ScheduleException
 from app.models.team import Team
 
 OVERLOADED_LOAD_LEVEL_THRESHOLD = 1.0
+VACATION_EXCEPTION_TYPES = ("vacation",)
 
 
 class DashboardRepository:
@@ -51,6 +53,15 @@ class DashboardRepository:
     async def last_calculation_at(self) -> datetime | None:
         result = await self.session.execute(select(func.max(EmployeeMetric.calculated_at)))
         return result.scalar_one_or_none()
+
+    async def count_vacations_in_range(self, start: datetime, end: datetime) -> int:
+        return await self._scalar_int(
+            select(func.count(ScheduleException.id)).where(
+                ScheduleException.type.in_(VACATION_EXCEPTION_TYPES),
+                ScheduleException.start_dt <= end,
+                ScheduleException.end_dt >= start,
+            )
+        )
 
     async def _scalar_int(self, statement: Select[tuple[int]]) -> int:
         result = await self.session.execute(statement)

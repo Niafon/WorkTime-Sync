@@ -308,7 +308,6 @@ def make_work_schedules(rng: random.Random, employees: list[Employee]) -> list[W
                 start_time=time(hour=start_hour, minute=0),
                 end_time=time(hour=start_hour + duration, minute=0),
                 timezone=emp.timezone,
-                work_format=emp.work_format,
                 last_updated_at=last_updated,
                 confirmed_at=confirmed_at,
                 is_active=True,
@@ -776,7 +775,6 @@ def build_schedules_from_fixtures(rows: list[dict]) -> list[WorkSchedule]:
                 start_time=_parse_time(row["start_time"]),
                 end_time=_parse_time(row["end_time"]),
                 timezone=row["timezone"],
-                work_format=row.get("work_format", "office"),
                 last_updated_at=_parse_iso_dt(row["last_updated_at"]),
                 confirmed_at=_parse_iso_dt(confirmed) if confirmed else None,
                 is_active=row.get("is_active", True),
@@ -881,98 +879,100 @@ async def run_seed(
         print("Очищаю таблицы…")
         await reset_tables(session)
 
-        print(f"Загружаю фикстуры из scripts/seed_data/{profile}/…")
-        fixtures = load_fixtures(profile)
+    if True:
+        if from_files:
+            print(f"Загружаю фикстуры из scripts/seed_data/{profile}/…")
+            fixtures = load_fixtures(profile)
 
-        employees = build_employees_from_fixtures(fixtures["employees"])
-        session.add_all(employees)
+            employees = build_employees_from_fixtures(fixtures["employees"])
+            session.add_all(employees)
+            await session.flush()
+            print(f"  сотрудников: {len(employees)}")
+
+            teams = build_teams_from_fixtures(fixtures["teams"])
+            session.add_all(teams)
+            await session.flush()
+            print(f"  команд: {len(teams)}")
+
+            members = build_team_members_from_fixtures(fixtures["team_members"])
+            session.add_all(members)
+            await session.flush()
+            print(f"  team-членств: {len(members)}")
+
+            schedules = build_schedules_from_fixtures(fixtures["work_schedules"])
+            session.add_all(schedules)
+            await session.flush()
+            schedules_by_emp = {s.employee_id: s for s in schedules}
+            print(f"  графиков: {len(schedules)}")
+
+            exceptions = build_exceptions_from_fixtures(fixtures["schedule_exceptions"])
+            session.add_all(exceptions)
+            await session.flush()
+            print(f"  исключений: {len(exceptions)}")
+
+            events = build_events_from_fixtures(fixtures["activity_events"])
+            session.add_all(events)
+            await session.flush()
+            print(f"  событий: {len(events)}")
+        else:
+            print("Создаю сотрудников…")
+            employees = make_employees(rng, limit=employee_limit)
+            session.add_all(employees)
+            await session.flush()
+            print(f"  сотрудников: {len(employees)}")
+
+            print("Создаю команды…")
+            teams = make_teams(limit=team_limit)
+            session.add_all(teams)
+            await session.flush()
+            print(f"  команд: {len(teams)}")
+
+            print("Назначаю участников команд…")
+            members = make_team_members(rng, teams, employees)
+            session.add_all(members)
+            await session.flush()
+            print(f"  team-членств: {len(members)}")
+
+            print("Создаю рабочие графики…")
+            schedules = make_work_schedules(rng, employees)
+            session.add_all(schedules)
+            await session.flush()
+            schedules_by_emp = {s.employee_id: s for s in schedules}
+            print(f"  графиков: {len(schedules)}")
+
+            print("Создаю исключения (отпуска/больничные)…")
+            exceptions = make_exceptions(rng, employees)
+            session.add_all(exceptions)
+            await session.flush()
+            print(f"  исключений: {len(exceptions)}")
+
+            print("Создаю события активности…")
+            events = make_activity_events(rng, employees, schedules_by_emp)
+            session.add_all(events)
+            await session.flush()
+            print(f"  событий: {len(events)}")
+
+        # metrics всегда программно — выводятся из событий
+        events_by_emp: dict[UUID, list[ActivityEvent]] = {}
+        for ev in events:
+            events_by_emp.setdefault(ev.employee_id, []).append(ev)
+        print("Создаю метрики…")
+        metrics = make_metrics(rng, employees, events_by_emp, schedules_by_emp)
+        session.add_all(metrics)
         await session.flush()
-        print(f"  сотрудников: {len(employees)}")
+        print(f"  метрик: {len(metrics)}")
 
-        teams = build_teams_from_fixtures(fixtures["teams"])
-        session.add_all(teams)
+        print("Создаю исторические снимки метрик…")
+        snapshots = make_metric_snapshots(rng, metrics)
+        session.add_all(snapshots)
         await session.flush()
-        print(f"  команд: {len(teams)}")
+        print(f"  снимков: {len(snapshots)}")
 
-        members = build_team_members_from_fixtures(fixtures["team_members"])
-        session.add_all(members)
+        print("Создаю запросы на подтверждение графика…")
+        confirmation_requests = make_confirmation_requests(rng, employees, schedules_by_emp)
+        session.add_all(confirmation_requests)
         await session.flush()
-        print(f"  team-членств: {len(members)}")
-
-        schedules = build_schedules_from_fixtures(fixtures["work_schedules"])
-        session.add_all(schedules)
-        await session.flush()
-        schedules_by_emp = {s.employee_id: s for s in schedules}
-        print(f"  графиков: {len(schedules)}")
-
-        exceptions = build_exceptions_from_fixtures(fixtures["schedule_exceptions"])
-        session.add_all(exceptions)
-        await session.flush()
-        print(f"  исключений: {len(exceptions)}")
-
-        events = build_events_from_fixtures(fixtures["activity_events"])
-        session.add_all(events)
-        await session.flush()
-        print(f"  событий: {len(events)}")
-    else:
-        print("Создаю сотрудников…")
-        employees = make_employees(rng, limit=employee_limit)
-        session.add_all(employees)
-        await session.flush()
-        print(f"  сотрудников: {len(employees)}")
-
-        print("Создаю команды…")
-        teams = make_teams(limit=team_limit)
-        session.add_all(teams)
-        await session.flush()
-        print(f"  команд: {len(teams)}")
-
-        print("Назначаю участников команд…")
-        members = make_team_members(rng, teams, employees)
-        session.add_all(members)
-        await session.flush()
-        print(f"  team-членств: {len(members)}")
-
-        print("Создаю рабочие графики…")
-        schedules = make_work_schedules(rng, employees)
-        session.add_all(schedules)
-        await session.flush()
-        schedules_by_emp = {s.employee_id: s for s in schedules}
-        print(f"  графиков: {len(schedules)}")
-
-        print("Создаю исключения (отпуска/больничные)…")
-        exceptions = make_exceptions(rng, employees)
-        session.add_all(exceptions)
-        await session.flush()
-        print(f"  исключений: {len(exceptions)}")
-
-        print("Создаю события активности…")
-        events = make_activity_events(rng, employees, schedules_by_emp)
-        session.add_all(events)
-        await session.flush()
-        print(f"  событий: {len(events)}")
-
-    # metrics всегда программно — выводятся из событий
-    events_by_emp: dict[UUID, list[ActivityEvent]] = {}
-    for ev in events:
-        events_by_emp.setdefault(ev.employee_id, []).append(ev)
-    print("Создаю метрики…")
-    metrics = make_metrics(rng, employees, events_by_emp, schedules_by_emp)
-    session.add_all(metrics)
-    await session.flush()
-    print(f"  метрик: {len(metrics)}")
-
-    print("Создаю исторические снимки метрик…")
-    snapshots = make_metric_snapshots(rng, metrics)
-    session.add_all(snapshots)
-    await session.flush()
-    print(f"  снимков: {len(snapshots)}")
-
-    print("Создаю запросы на подтверждение графика…")
-    confirmation_requests = make_confirmation_requests(rng, employees, schedules_by_emp)
-    session.add_all(confirmation_requests)
-    await session.flush()
-    print(f"  запросов: {len(confirmation_requests)}")
+        print(f"  запросов: {len(confirmation_requests)}")
 
     admin = next(
         (e for e in employees if e.email == ADMIN_EMAIL),

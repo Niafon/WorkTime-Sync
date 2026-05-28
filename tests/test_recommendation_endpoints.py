@@ -114,10 +114,11 @@ def _insert_problem_data(
             start_time,
             end_time,
             timezone,
+            work_format,
             last_updated_at,
             is_active
         )
-        values (%s, %s, %s, %s, %s, %s, %s, %s)
+        values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             uuid4(),
@@ -126,6 +127,7 @@ def _insert_problem_data(
             time(9, 0),
             time(18, 0),
             "UTC",
+            "office",
             now,
             True,
         ),

@@ -153,10 +153,11 @@ def _insert_schedule(
             start_time,
             end_time,
             timezone,
+            work_format,
             last_updated_at,
             is_active
         )
-        values (%s, %s, %s, %s, %s, %s, %s, %s)
+        values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             uuid4(),
@@ -165,6 +166,7 @@ def _insert_schedule(
             start_time,
             end_time,
             "UTC",
+            "office",
             datetime(2026, 5, 24, tzinfo=UTC),
             True,
         ),

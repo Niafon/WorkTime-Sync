@@ -17,6 +17,19 @@ class ScheduleExceptionRepository:
         await self.session.refresh(schedule_exception)
         return schedule_exception
 
+    async def get(self, exception_id: UUID) -> ScheduleException | None:
+        result = await self.session.execute(
+            select(ScheduleException).where(ScheduleException.id == exception_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def flush(self) -> None:
+        await self.session.flush()
+
+    async def delete(self, schedule_exception: ScheduleException) -> None:
+        await self.session.delete(schedule_exception)
+        await self.session.flush()
+
     async def list_for_employee(self, employee_id: UUID) -> list[ScheduleException]:
         result = await self.session.execute(
             select(ScheduleException)

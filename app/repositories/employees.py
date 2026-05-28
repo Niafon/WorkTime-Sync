@@ -4,7 +4,7 @@ import builtins
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import exists, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -33,40 +33,63 @@ class EmployeeRepository:
         search: str | None = None,
         category: str | None = None,
         now: datetime | None = None,
+        skip: int = 0,
+        limit: int | None = None,
     ) -> list[Employee]:
         stmt = select(Employee).options(
             selectinload(Employee.metrics),
             selectinload(Employee.team_members),
+            selectinload(Employee.confirmation_requests),
         )
-        if team_id is not None:
-            stmt = stmt.join(TeamMember, TeamMember.employee_id == Employee.id).where(
-                TeamMember.team_id == team_id
-            )
-        if risk_level is not None:
-            stmt = stmt.join(EmployeeMetric, EmployeeMetric.employee_id == Employee.id).where(
-                EmployeeMetric.risk_level == risk_level
-            )
-        if work_format is not None:
-            stmt = stmt.where(Employee.work_format == work_format)
-        if search:
-            pattern = f"%{search.strip()}%"
-            stmt = stmt.where(
-                or_(
-                    Employee.full_name.ilike(pattern),
-                    Employee.email.ilike(pattern),
-                    Employee.position.ilike(pattern),
-                )
-            )
-        if category is not None:
-            stmt = _apply_category_filter(stmt, category, now=now)
+        stmt = _apply_filters(
+            stmt,
+            team_id=team_id,
+            risk_level=risk_level,
+            work_format=work_format,
+            search=search,
+            category=category,
+            now=now,
+        )
         stmt = stmt.order_by(Employee.full_name.asc())
+        if skip:
+            stmt = stmt.offset(skip)
+        if limit is not None:
+            stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().unique().all())
+
+    async def count(
+        self,
+        *,
+        team_id: UUID | None = None,
+        risk_level: str | None = None,
+        work_format: str | None = None,
+        search: str | None = None,
+        category: str | None = None,
+        now: datetime | None = None,
+    ) -> int:
+        stmt = _apply_filters(
+            select(Employee.id),
+            team_id=team_id,
+            risk_level=risk_level,
+            work_format=work_format,
+            search=search,
+            category=category,
+            now=now,
+        )
+        # distinct, чтобы join'ы не раздували счётчик
+        count_stmt = select(func.count()).select_from(stmt.distinct().subquery())
+        result = await self.session.execute(count_stmt)
+        return int(result.scalar_one())
 
     async def get(self, employee_id: UUID) -> Employee | None:
         result = await self.session.execute(
             select(Employee)
-            .options(selectinload(Employee.metrics), selectinload(Employee.team_members))
+            .options(
+                selectinload(Employee.metrics),
+                selectinload(Employee.team_members),
+                selectinload(Employee.confirmation_requests),
+            )
             .where(Employee.id == employee_id)
         )
         return result.scalar_one_or_none()
@@ -95,6 +118,40 @@ class EmployeeRepository:
         await self.session.flush()
         await self.session.refresh(employee)
         return employee
+
+
+def _apply_filters(
+    stmt,
+    *,
+    team_id: UUID | None,
+    risk_level: str | None,
+    work_format: str | None,
+    search: str | None,
+    category: str | None,
+    now: datetime | None,
+):
+    if team_id is not None:
+        stmt = stmt.join(TeamMember, TeamMember.employee_id == Employee.id).where(
+            TeamMember.team_id == team_id
+        )
+    if risk_level is not None:
+        stmt = stmt.join(EmployeeMetric, EmployeeMetric.employee_id == Employee.id).where(
+            EmployeeMetric.risk_level == risk_level
+        )
+    if work_format is not None:
+        stmt = stmt.where(Employee.work_format == work_format)
+    if search:
+        pattern = f"%{search.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Employee.full_name.ilike(pattern),
+                Employee.email.ilike(pattern),
+                Employee.position.ilike(pattern),
+            )
+        )
+    if category is not None:
+        stmt = _apply_category_filter(stmt, category, now=now)
+    return stmt
 
 
 def _apply_category_filter(stmt, category: str, *, now: datetime | None):

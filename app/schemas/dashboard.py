@@ -11,3 +11,5 @@ class DashboardSummaryResponse(BaseModel):
     outdated_schedules_count: int
     outside_schedule_events_count: int
     last_calculation_at: datetime | None
+    actual_schedules_count: int
+    vacations_this_month: int

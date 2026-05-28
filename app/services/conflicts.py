@@ -30,7 +30,7 @@ from app.schemas.conflict import (
 )
 from app.services.exceptions import NotFoundError
 
-EXCLUDED_EXCEPTION_TYPES = {"vacation", "sick", "sick_leave"}
+EXCLUDED_EXCEPTION_TYPES = {"vacation", "sick", "sick_leave", "personal_hours"}
 ALTERNATIVE_RANGE_DAYS = 7
 MAX_ALTERNATIVES = 3
 

@@ -61,6 +61,15 @@ class WorkScheduleService:
             changed_by=changed_by,
             after=schedule_to_dict(schedule),
         )
+
+        # Keep the canonical work_format on Employee in sync with the latest
+        # active schedule so list/filter queries on Employee stay correct.
+        if payload.is_active:
+            employee = await self.employees.get(employee_id)
+            if employee is not None and employee.work_format != payload.work_format:
+                employee.work_format = payload.work_format
+                await self.session.flush()
+
         await self.session.commit()
         return schedule
 

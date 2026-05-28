@@ -119,6 +119,7 @@ async def test_schedule_and_exception_create_read_paths(client: AsyncClient) -> 
             "start_time": time(9, 0).isoformat(),
             "end_time": time(18, 0).isoformat(),
             "timezone": "Europe/Moscow",
+            "work_format": "office",
             "last_updated_at": now.isoformat(),
             "is_active": True,
         },
@@ -152,6 +153,36 @@ async def test_missing_employee_returns_404(client: AsyncClient) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "employee not found"}
+
+
+@pytest.mark.asyncio
+async def test_schedule_diagnostics_returns_shape(client: AsyncClient) -> None:
+    employee = await _create_employee(client)
+    employee_id = str(employee["id"])
+
+    response = await client.get(f"/api/v1/employees/{employee_id}/schedule-diagnostics")
+    assert response.status_code == 200
+
+    payload = response.json()
+    expected_keys = {
+        "window_days",
+        "total_events",
+        "outside_events",
+        "outside_after_hour",
+        "has_timezone_drift",
+        "days_since_update",
+        "should_show_alert",
+    }
+    assert set(payload) == expected_keys
+    assert isinstance(payload["window_days"], int) and payload["window_days"] > 0
+    assert payload["outside_after_hour"] is None or isinstance(payload["outside_after_hour"], int)
+    assert isinstance(payload["should_show_alert"], bool)
+
+
+@pytest.mark.asyncio
+async def test_schedule_diagnostics_missing_employee_returns_404(client: AsyncClient) -> None:
+    response = await client.get(f"/api/v1/employees/{uuid4()}/schedule-diagnostics")
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio

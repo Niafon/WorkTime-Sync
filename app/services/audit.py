@@ -27,6 +27,7 @@ def schedule_to_dict(schedule: WorkSchedule) -> dict[str, Any]:
         "start_time": schedule.start_time.isoformat(),
         "end_time": schedule.end_time.isoformat(),
         "timezone": schedule.timezone,
+        "work_format": schedule.work_format,
         "last_updated_at": schedule.last_updated_at.isoformat(),
         "is_active": schedule.is_active,
     }
@@ -52,6 +53,7 @@ def employee_to_dict(employee: Employee) -> dict[str, Any]:
         "full_name": employee.full_name,
         "email": employee.email,
         "position": employee.position,
+        "hire_date": employee.hire_date.isoformat() if employee.hire_date else None,
         "timezone": employee.timezone,
         "work_format": employee.work_format,
     }

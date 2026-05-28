@@ -1,7 +1,10 @@
 from datetime import datetime, time
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+
+WorkFormat = Literal["office", "remote", "hybrid"]
 
 
 class WorkScheduleCreate(BaseModel):
@@ -10,6 +13,7 @@ class WorkScheduleCreate(BaseModel):
     start_time: time
     end_time: time
     timezone: str
+    work_format: WorkFormat
     last_updated_at: datetime
     is_active: bool
 
@@ -21,6 +25,7 @@ class WorkScheduleResponse(BaseModel):
     start_time: time
     end_time: time
     timezone: str
+    work_format: WorkFormat
     last_updated_at: datetime
     confirmed_at: datetime | None = None
     is_active: bool

@@ -33,7 +33,7 @@ from app.repositories.work_schedules import WorkScheduleRepository
 DEFAULT_WINDOW_DAYS = 14
 HR_EVENT_SOURCES = frozenset({"hr", "timesheet"})
 CALENDAR_EVENT_SOURCES = frozenset({"calendar", "google_calendar", "outlook", "ical"})
-ABSENCE_TYPES = frozenset({"vacation", "sick", "sick_leave", "business_trip"})
+ABSENCE_TYPES = frozenset({"vacation", "sick", "sick_leave", "business_trip", "personal_hours"})
 
 
 class MetricCalculatorService:

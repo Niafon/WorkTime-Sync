@@ -12,9 +12,15 @@ from app.schemas.availability import (
 )
 from app.schemas.common import ErrorResponse
 from app.schemas.dashboard import DashboardSummaryResponse
-from app.schemas.employee import EmployeeCreate, EmployeeResponse, EmployeeUpdate
+from app.schemas.employee import (
+    EmployeeCreate,
+    EmployeeFullCreate,
+    EmployeeResponse,
+    EmployeeUpdate,
+)
 from app.schemas.employee_metric import EmployeeMetricResponse
 from app.schemas.recommendation import RecommendationResponse
+from app.schemas.schedule_diagnostics import ScheduleDiagnosticsResponse
 from app.schemas.schedule_exception import (
     ScheduleExceptionCreate,
     ScheduleExceptionResponse,
@@ -30,6 +36,7 @@ __all__ = (
     "DashboardSummaryResponse",
     "EmployeeAvailabilityResponse",
     "EmployeeCreate",
+    "EmployeeFullCreate",
     "EmployeeMetricResponse",
     "EmployeeResponse",
     "EmployeeUpdate",
@@ -37,6 +44,7 @@ __all__ = (
     "MeetingRecommendationRequest",
     "MeetingRecommendationResponse",
     "RecommendationResponse",
+    "ScheduleDiagnosticsResponse",
     "ScheduleExceptionCreate",
     "ScheduleExceptionResponse",
     "TeamCreate",
