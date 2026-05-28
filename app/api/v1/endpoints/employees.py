@@ -103,6 +103,7 @@ async def create_employee_full(
 
 
 
+
 EmployeeCategory = Literal[
     "actual",
     "outdated",
@@ -385,6 +386,7 @@ async def delete_employee_exception(
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
 
 
 

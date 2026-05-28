@@ -71,6 +71,7 @@ class WorkScheduleService:
                 await self.session.flush()
 
 
+
         await self.session.commit()
         return schedule
 
