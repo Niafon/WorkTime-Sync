@@ -32,6 +32,7 @@ class EmployeeRepository:
         work_format: str | None = None,
         search: str | None = None,
         category: str | None = None,
+        role: str | None = None,
         now: datetime | None = None,
         skip: int = 0,
         limit: int | None = None,
@@ -48,6 +49,7 @@ class EmployeeRepository:
             work_format=work_format,
             search=search,
             category=category,
+            role=role,
             now=now,
         )
         stmt = stmt.order_by(Employee.full_name.asc())
@@ -66,6 +68,7 @@ class EmployeeRepository:
         work_format: str | None = None,
         search: str | None = None,
         category: str | None = None,
+        role: str | None = None,
         now: datetime | None = None,
     ) -> int:
         stmt = _apply_filters(
@@ -75,6 +78,7 @@ class EmployeeRepository:
             work_format=work_format,
             search=search,
             category=category,
+            role=role,
             now=now,
         )
         # distinct, чтобы join'ы не раздували счётчик
@@ -128,6 +132,7 @@ def _apply_filters(
     work_format: str | None,
     search: str | None,
     category: str | None,
+    role: str | None,
     now: datetime | None,
 ):
     if team_id is not None:
@@ -140,6 +145,8 @@ def _apply_filters(
         )
     if work_format is not None:
         stmt = stmt.where(Employee.work_format == work_format)
+    if role is not None:
+        stmt = stmt.where(Employee.role == role)
     if search:
         pattern = f"%{search.strip()}%"
         stmt = stmt.where(

@@ -1,9 +1,10 @@
 import json
+import logging
 from collections.abc import AsyncIterator
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,6 +59,7 @@ async def chat(
 )
 async def chat_stream(
     payload: AiChatRequest,
+    request: Request,
     session: SessionDep,
     _current_employee: CurrentEmployeeDep,
 ) -> StreamingResponse:
@@ -67,6 +69,11 @@ async def chat_stream(
       * `delta` — `{"text": "chunk"}`, raw text chunks of model output as they arrive
       * `done`  — `{"response": <AiChatResponse>}`, final validated structured answer
       * `error` — `{"detail": "..."}`, terminal error (after this no more events)
+
+    При обрыве клиентского соединения (`request.is_disconnected()`) генератор
+    закрывается, что прерывает upstream-запрос к OpenRouter (httpx закрывает
+    соединение при `aclose()` async-итератора) — иначе процесс продолжал бы
+    кушать токены LLM, держать httpx-сокет и тратить процессорное время.
     """
     # Build the async generator up-front so we can surface auth/lookup errors
     # synchronously (404 for missing employee/team, 503/502 for AI failures)
@@ -78,14 +85,26 @@ async def chat_stream(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     async def event_source() -> AsyncIterator[bytes]:
+        upstream = service.chat_stream(payload)
         try:
-            async for event in service.chat_stream(payload):
+            async for event in upstream:
+                if await request.is_disconnected():
+                    break
                 payload_str = json.dumps(event["data"], ensure_ascii=False)
                 chunk = f"event: {event['event']}\ndata: {payload_str}\n\n"
                 yield chunk.encode("utf-8")
         except AIServiceError as exc:
             payload_str = json.dumps({"detail": str(exc)}, ensure_ascii=False)
             yield f"event: error\ndata: {payload_str}\n\n".encode("utf-8")
+        finally:
+            # aclose() прокидывает GeneratorExit в chat_stream → его finally
+            # закроет httpx-response к OpenRouter. Без этого upstream висит
+            # после отключения клиента.
+            await upstream.aclose()
+            if await request.is_disconnected():
+                logging.getLogger(__name__).info(
+                    "ai.chat_stream: client disconnected, upstream cancelled"
+                )
 
     return StreamingResponse(
         event_source(),

@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.vk_oauth import VKOAuthClient
+from app.auth.vk_oauth import VKOAuthClient, VKOAuthStateError, verify_vk_oauth_state
 from app.core.passwords import hash_password, verify_password
 from app.core.roles import EmployeeRole
 from app.core.security import (
@@ -52,9 +52,14 @@ class AuthService:
         self.vk_oauth_client = vk_oauth_client or VKOAuthClient()
 
     def vk_authorization_url(self) -> str:
-        return self.vk_oauth_client.authorization_url()
+        url, _state = self.vk_oauth_client.authorization_url()
+        return url
 
-    async def authenticate_vk_code(self, code: str) -> IssuedTokens:
+    async def authenticate_vk_code(self, code: str, state: str) -> IssuedTokens:
+        try:
+            verify_vk_oauth_state(state)
+        except VKOAuthStateError as exc:
+            raise ValueError(f"invalid OAuth state: {exc}") from exc
         vk_access_token = await self.vk_oauth_client.exchange_code_for_access_token(code)
         vk_user = await self.vk_oauth_client.get_user_info(vk_access_token)
         employee = await self.employees.get_by_vk_user_id(vk_user.vk_user_id)

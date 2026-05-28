@@ -201,6 +201,11 @@ class NotificationService:
         limit: int = 50,
         offset: int = 0,
     ) -> list[Notification]:
+        # Lazy-доставка отложенных: без cron/worker'а делаем это в read-path,
+        # чтобы deferred_until не «зависало» в БД навсегда (см. ТЗ §16 п.6).
+        promoted = await self.repo.promote_due_deferred(recipient_id)
+        if promoted:
+            await self.session.commit()
         return await self.repo.list_for_recipient(
             recipient_id, unread_only=unread_only, limit=limit, offset=offset
         )

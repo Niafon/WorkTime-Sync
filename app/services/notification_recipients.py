@@ -17,12 +17,15 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from sqlalchemy import select
+
 from app.core.roles import EmployeeRole
 from app.models.employee import Employee
 from app.models.notification import (
     NOTIFICATION_SEVERITY_CRITICAL,
     NOTIFICATION_SEVERITY_HIGH,
 )
+from app.models.team_member import TeamMember
 from app.repositories.employees import EmployeeRepository
 from app.repositories.team_members import TeamMemberRepository
 

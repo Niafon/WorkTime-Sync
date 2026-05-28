@@ -63,6 +63,12 @@ def is_event_outside_schedule(
     end_dt: datetime,
     schedule: WorkScheduleWindow,
 ) -> bool:
+    # TODO(post-MVP): встречи через полночь (22:00→01:30) сейчас считаются
+    # outside по правилу `start.date() != end.date()`. Для офисного 9-18 это
+    # корректно (поздняя встреча = переработка). Для ночных смен и команд с
+    # разными ТЗ — занижает фактическую активность. Если потребуется
+    # поддержка ночных графиков, нужно разрешить window с end_time < start_time
+    # и сравнивать интервал в локальной TZ сотрудника, а не по календарной дате.
     if start_dt >= end_dt:
         return True
     if start_dt.date() != end_dt.date():

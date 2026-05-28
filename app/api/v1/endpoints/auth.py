@@ -1,11 +1,12 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentEmployeeDep, get_db_session
 from app.core.config import settings
+from app.core.rate_limit import login_rate_limiter
 from app.schemas.auth import (
     AuthResponse,
     LoginRequest,
@@ -87,12 +88,35 @@ async def register(
     return _finalize(tokens, response)
 
 
-@router.post("/login", response_model=AuthResponse, responses=error_responses)
+def _client_ip(request: Request) -> str:
+    # X-Forwarded-For выставляет reverse-proxy; берём левый элемент (исходный IP).
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",", 1)[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+@router.post(
+    "/login",
+    response_model=AuthResponse,
+    responses={**error_responses, status.HTTP_429_TOO_MANY_REQUESTS: {"model": ErrorResponse}},
+)
 async def login(
     session: SessionDep,
     payload: LoginRequest,
+    request: Request,
     response: Response,
 ) -> AuthResponse:
+    # Rate-limit per (ip, email) — режет brute-force паролей для одного аккаунта
+    # и параллельный перебор разных аккаунтов с одного IP.
+    rate_key = f"login:{_client_ip(request)}:{payload.email.lower()}"
+    if not login_rate_limiter.check_and_record(rate_key):
+        retry_after = login_rate_limiter.retry_after(rate_key)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="too many login attempts, try again later",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
     try:
         tokens = await AuthService(session).login(
             email=payload.email, password=payload.password
@@ -112,9 +136,10 @@ async def vk_callback(
     session: SessionDep,
     response: Response,
     code: str = Query(min_length=1),
+    state: str = Query(min_length=1, description="HMAC-signed state issued by /vk/login"),
 ) -> AuthResponse:
     try:
-        tokens = await AuthService(session).authenticate_vk_code(code)
+        tokens = await AuthService(session).authenticate_vk_code(code, state)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _finalize(tokens, response)

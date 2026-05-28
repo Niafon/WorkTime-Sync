@@ -1,7 +1,20 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Известные «слабые» значения JWT-секрета. Если приложение стартует с одним
+# из них — это указывает на пропущенную настройку прод-окружения, и подделать
+# любой токен сможет любой, кто заглянул в репозиторий.
+_WEAK_JWT_SECRETS = frozenset(
+    {
+        "",
+        "change-me-in-production",
+        "secret",
+        "test",
+        "dev",
+    }
+)
 
 
 class Settings(BaseSettings):
@@ -21,8 +34,12 @@ class Settings(BaseSettings):
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
 
     jwt_secret_key: str = Field(
-        default="change-me-in-production",
         validation_alias="JWT_SECRET_KEY",
+        min_length=32,
+        description=(
+            "HMAC-секрет для подписи JWT. Обязательно задать через env. "
+            "Минимум 32 символа, не допускаются известные dev/demo-значения."
+        ),
     )
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 15
@@ -55,6 +72,17 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def _reject_weak_jwt_secret(cls, value: str) -> str:
+        if value.strip().lower() in _WEAK_JWT_SECRETS:
+            raise ValueError(
+                "JWT_SECRET_KEY имеет известное dev/demo значение. "
+                "Сгенерируйте сильный секрет (например: `openssl rand -hex 32`) "
+                "и задайте его через переменную окружения JWT_SECRET_KEY."
+            )
+        return value
 
     @property
     def sqlalchemy_database_url(self) -> str:
