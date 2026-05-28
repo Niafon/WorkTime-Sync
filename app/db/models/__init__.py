@@ -2,6 +2,7 @@ from app.models.activity_event import ActivityEvent
 from app.models.base import Base
 from app.models.employee import Employee
 from app.models.employee_metric import EmployeeMetric
+from app.models.employee_metric_snapshot import EmployeeMetricSnapshot
 from app.models.schedule_exception import ScheduleException
 from app.models.team import Team
 from app.models.team_member import TeamMember
@@ -12,6 +13,7 @@ __all__ = (
     "Base",
     "Employee",
     "EmployeeMetric",
+    "EmployeeMetricSnapshot",
     "ScheduleException",
     "Team",
     "TeamMember",

@@ -129,6 +129,70 @@ async def test_invalid_csv_row_returns_validation_errors(client: AsyncClient) ->
 
 
 @pytest.mark.asyncio
+async def test_csv_import_with_recurrence_rule_marks_event_recurring(
+    client: AsyncClient,
+) -> None:
+    employee_id = await _create_employee(client)
+    start = datetime.now(UTC)
+    end = start + timedelta(hours=1)
+    external_id = uuid4().hex
+    csv_content = "\n".join(
+        [
+            "employee_id,external_id,source,event_type,title,"
+            "start_dt,end_dt,timezone,is_recurring,recurrence_rule",
+            (
+                f"{employee_id},{external_id},mock,meeting,Weekly Sync,"
+                f"{start.isoformat()},{end.isoformat()},Europe/Moscow,false,"
+                # RRULE содержит запятую внутри BYDAY=MO,WE — оборачиваем в
+                # CSV-кавычки, чтобы DictReader не разбил поле.
+                '"FREQ=WEEKLY;BYDAY=MO,WE;COUNT=10"'
+            ),
+        ]
+    )
+
+    response = await client.post(
+        "/api/v1/import/events/csv",
+        files={"file": ("events.csv", csv_content, "text/csv")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["imported_count"] == 1
+
+    events_response = await client.get(f"/api/v1/employees/{employee_id}/events")
+    assert events_response.status_code == 200
+    imported = next(
+        event for event in events_response.json() if event["external_id"] == external_id
+    )
+    assert imported["recurrence_rule"] == "FREQ=WEEKLY;BYDAY=MO,WE;COUNT=10"
+    assert imported["is_recurring"] is True
+
+
+@pytest.mark.asyncio
+async def test_json_import_rejects_invalid_recurrence_rule(client: AsyncClient) -> None:
+    employee_id = await _create_employee(client)
+    start = datetime.now(UTC)
+    end = start + timedelta(hours=1)
+    payload = [
+        {
+            "employee_id": employee_id,
+            "external_id": uuid4().hex,
+            "source": "json",
+            "event_type": "meeting",
+            "title": "Bad rrule",
+            "start_dt": start.isoformat(),
+            "end_dt": end.isoformat(),
+            "timezone": "Europe/Moscow",
+            "recurrence_rule": "definitely-not-an-rrule",
+        }
+    ]
+
+    response = await client.post("/api/v1/import/events/json", json=payload)
+
+    assert response.status_code == 400
+    assert "recurrence_rule" in response.text
+
+
+@pytest.mark.asyncio
 async def test_manual_event_create(client: AsyncClient) -> None:
     employee_id = await _create_employee(client)
     start = datetime.now(UTC)

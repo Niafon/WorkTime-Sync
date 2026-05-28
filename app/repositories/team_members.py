@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.team_member import TeamMember
@@ -27,6 +27,24 @@ class TeamMemberRepository:
             select(TeamMember.employee_id).where(TeamMember.team_id == team_id)
         )
         return list(result.scalars().all())
+
+    async def count_for_team(self, team_id: UUID) -> int:
+        result = await self.session.execute(
+            select(func.count())
+            .select_from(TeamMember)
+            .where(TeamMember.team_id == team_id)
+        )
+        return int(result.scalar_one())
+
+    async def counts_by_team(self, team_ids: list[UUID]) -> dict[UUID, int]:
+        if not team_ids:
+            return {}
+        result = await self.session.execute(
+            select(TeamMember.team_id, func.count())
+            .where(TeamMember.team_id.in_(team_ids))
+            .group_by(TeamMember.team_id)
+        )
+        return {team_id: int(count) for team_id, count in result.all()}
 
     async def delete(self, team_member: TeamMember) -> None:
         await self.session.delete(team_member)

@@ -2,8 +2,6 @@
 
 FastAPI MVP backend for storing employees, teams, schedules, exceptions, imported activity events, calculated metrics, recommendations, and dashboard summaries.
 
-Full production-oriented technical documentation: [docs/technical-documentation.md](docs/technical-documentation.md).
-
 ## Stack
 
 - Python 3.12
@@ -46,6 +44,36 @@ Useful migration commands:
 venv\Scripts\python.exe -m alembic current
 venv\Scripts\python.exe -m alembic check
 venv\Scripts\python.exe -m alembic revision --autogenerate -m "message"
+```
+
+## Demo data (seed)
+
+Быстрый старт для demo (macOS/Linux):
+
+```bash
+make demo                                 # db-up + migrate + seed-reset
+./venv/bin/python -m uvicorn app.main:app --reload
+```
+
+`make demo` заполнит БД синтетическими данными: 30 сотрудников, 5 команд,
+расписания, исключения, события, метрики, дорожная карта актуализации.
+Логин для фронта: `test@example.com` / `pass1234`.
+
+Альтернативы:
+
+- `make seed-reset` — TRUNCATE + полный набор (30 сотрудников, 5 команд)
+- `make seed-small` — мини-набор (8 сотрудников, 2 команды), программно
+- `make seed-files` — мини-набор из `scripts/seed_data/small/` (handcrafted
+  CSV/JSON-фикстуры, можно редактировать руками для воспроизводимой demo —
+  даты с плейсхолдером `{{days_ago:N}}` резолвятся в момент загрузки)
+
+Дополнительные флаги: `./venv/bin/python -m scripts.seed --help` — `--reset`,
+`--small`, `--from-files`, `--no-roadmap`.
+
+Без `make` (или на Windows):
+
+```powershell
+venv\Scripts\python.exe -m scripts.seed --reset
 ```
 
 ## Run API

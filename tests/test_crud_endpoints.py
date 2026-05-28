@@ -119,6 +119,7 @@ async def test_schedule_and_exception_create_read_paths(client: AsyncClient) -> 
             "start_time": time(9, 0).isoformat(),
             "end_time": time(18, 0).isoformat(),
             "timezone": "Europe/Moscow",
+            "work_format": "office",
             "last_updated_at": now.isoformat(),
             "is_active": True,
         },
@@ -152,3 +153,78 @@ async def test_missing_employee_returns_404(client: AsyncClient) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "employee not found"}
+
+
+@pytest.mark.asyncio
+async def test_schedule_diagnostics_returns_shape(client: AsyncClient) -> None:
+    employee = await _create_employee(client)
+    employee_id = str(employee["id"])
+
+    response = await client.get(f"/api/v1/employees/{employee_id}/schedule-diagnostics")
+    assert response.status_code == 200
+
+    payload = response.json()
+    expected_keys = {
+        "window_days",
+        "total_events",
+        "outside_events",
+        "outside_after_hour",
+        "has_timezone_drift",
+        "days_since_update",
+        "should_show_alert",
+    }
+    assert set(payload) == expected_keys
+    assert isinstance(payload["window_days"], int) and payload["window_days"] > 0
+    assert payload["outside_after_hour"] is None or isinstance(payload["outside_after_hour"], int)
+    assert isinstance(payload["should_show_alert"], bool)
+
+
+@pytest.mark.asyncio
+async def test_schedule_diagnostics_missing_employee_returns_404(client: AsyncClient) -> None:
+    response = await client.get(f"/api/v1/employees/{uuid4()}/schedule-diagnostics")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_team_returns_204_and_cascades_members(
+    client: AsyncClient,
+) -> None:
+    employee = await _create_employee(client)
+    team = await _create_team(client)
+    member_response = await client.post(
+        f"/api/v1/teams/{team['id']}/members",
+        json={
+            "team_id": team["id"],
+            "employee_id": employee["id"],
+            "role_in_team": "developer",
+        },
+    )
+    assert member_response.status_code == 201
+
+    delete_response = await client.delete(f"/api/v1/teams/{team['id']}")
+    assert delete_response.status_code == 204
+
+    get_response = await client.get(f"/api/v1/teams/{team['id']}")
+    assert get_response.status_code == 404
+
+    # employee остался в системе
+    employee_get = await client.get(f"/api/v1/employees/{employee['id']}")
+    assert employee_get.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_delete_team_not_found_returns_404(client: AsyncClient) -> None:
+    response = await client.delete(f"/api/v1/teams/{uuid4()}")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.auth_role("employee")
+async def test_delete_team_requires_management_role(client: AsyncClient) -> None:
+    team_id = uuid4()
+    with psycopg.connect(_sync_database_url()) as connection:
+        connection.execute(
+            "insert into teams (id, name) values (%s, %s)", (team_id, "RBAC test team")
+        )
+    response = await client.delete(f"/api/v1/teams/{team_id}")
+    assert response.status_code == 403

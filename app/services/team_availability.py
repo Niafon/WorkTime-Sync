@@ -9,13 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics.availability import (
     EmployeeAvailabilityInput,
+    MeetingRecommendation,
     TimeWindow,
     calculate_employee_availability,
     recommend_meeting_windows,
 )
+from app.analytics.recurrence import expand_event
 from app.models.employee import Employee
 from app.models.work_schedule import WorkSchedule
 from app.repositories.activity_events import ActivityEventRepository
+from app.repositories.employee_metrics import EmployeeMetricRepository
 from app.repositories.employees import EmployeeRepository
 from app.repositories.schedule_exceptions import ScheduleExceptionRepository
 from app.repositories.team_members import TeamMemberRepository
@@ -24,13 +27,14 @@ from app.repositories.work_schedules import WorkScheduleRepository
 from app.schemas.availability import (
     AvailabilityWindowResponse,
     EmployeeAvailabilityResponse,
+    EmployeeLocalTimeResponse,
     MeetingRecommendationRequest,
     MeetingRecommendationResponse,
     TeamAvailabilityResponse,
 )
 from app.services.exceptions import InvalidOperationError, NotFoundError
 
-EXCLUDED_EXCEPTION_TYPES = {"vacation", "sick", "sick_leave"}
+EXCLUDED_EXCEPTION_TYPES = {"vacation", "sick", "sick_leave", "personal_hours"}
 
 
 class TeamAvailabilityService:
@@ -41,6 +45,7 @@ class TeamAvailabilityService:
         self.schedules = WorkScheduleRepository(session)
         self.exceptions = ScheduleExceptionRepository(session)
         self.events = ActivityEventRepository(session)
+        self.metrics = EmployeeMetricRepository(session)
 
     async def get_availability(
         self,
@@ -95,6 +100,26 @@ class TeamAvailabilityService:
             payload.start_dt,
             payload.end_dt,
         )
+        team_member_ids = {employee.id for employee in employees}
+        _validate_membership(payload.required_employee_ids, team_member_ids, "required")
+        _validate_membership(payload.optional_employee_ids, team_member_ids, "optional")
+
+        if payload.required_employee_ids:
+            required_uuids = set(payload.required_employee_ids)
+        elif payload.optional_employee_ids:
+            required_uuids = set()
+        else:
+            required_uuids = set(team_member_ids)
+        optional_uuids = set(payload.optional_employee_ids) - required_uuids
+
+        metrics = await self.metrics.list_for_employees([employee.id for employee in employees])
+        load_by_employee = {metric.employee_id: metric.load_level for metric in metrics}
+        overloaded_uuids = {
+            employee.id
+            for employee in employees
+            if load_by_employee.get(employee.id, 0.0) > payload.load_threshold
+        }
+
         availability = [
             calculate_employee_availability(
                 employee_input,
@@ -108,21 +133,17 @@ class TeamAvailabilityService:
             range_start=payload.start_dt,
             range_end=payload.end_dt,
             duration_minutes=payload.duration_minutes,
+            required_ids=frozenset(str(eid) for eid in required_uuids),
+            optional_ids=frozenset(str(eid) for eid in optional_uuids),
+            overloaded_ids=frozenset(str(eid) for eid in overloaded_uuids),
         )
-        employee_ids = {str(employee.id): employee.id for employee in employees}
+        employee_by_id = {employee.id: employee for employee in employees}
         return [
-            MeetingRecommendationResponse(
-                start_dt=recommendation.start_dt,
-                end_dt=recommendation.end_dt,
-                available_employee_ids=[
-                    employee_ids[employee_id]
-                    for employee_id in recommendation.available_employee_ids
-                ],
-                unavailable_employee_ids=[
-                    employee_ids[employee_id]
-                    for employee_id in recommendation.unavailable_employee_ids
-                ],
-                score=recommendation.score,
+            _to_recommendation_response(
+                recommendation,
+                employee_by_id=employee_by_id,
+                required_uuids=required_uuids,
+                optional_uuids=optional_uuids,
             )
             for recommendation in recommendations
         ]
@@ -165,8 +186,9 @@ class TeamAvailabilityService:
                             if item.type in EXCLUDED_EXCEPTION_TYPES
                         ),
                         *(
-                            TimeWindow(item.start_dt, item.end_dt)
+                            TimeWindow(interval.start_dt, interval.end_dt)
                             for item in events_by_employee[employee.id]
+                            for interval in expand_event(item, range_start, range_end)
                         ),
                     ]
                 ),
@@ -204,4 +226,70 @@ def _local_window(day: date, start_time: time, end_time: time, timezone: ZoneInf
     return TimeWindow(
         start_dt=datetime.combine(day, start_time, tzinfo=timezone),
         end_dt=datetime.combine(day, end_time, tzinfo=timezone),
+    )
+
+
+def _validate_membership(
+    ids: list[UUID],
+    team_member_ids: set[UUID],
+    field_label: str,
+) -> None:
+    unknown = [str(eid) for eid in ids if eid not in team_member_ids]
+    if unknown:
+        raise InvalidOperationError(
+            f"{field_label} employees not in team: {', '.join(unknown)}"
+        )
+
+
+def _to_recommendation_response(
+    recommendation: MeetingRecommendation,
+    *,
+    employee_by_id: dict[UUID, Employee],
+    required_uuids: set[UUID],
+    optional_uuids: set[UUID],
+) -> MeetingRecommendationResponse:
+    required_available = [UUID(eid) for eid in recommendation.required_available_ids]
+    required_missing = [UUID(eid) for eid in recommendation.required_missing_ids]
+    optional_available = [UUID(eid) for eid in recommendation.optional_available_ids]
+    optional_missing = [UUID(eid) for eid in recommendation.optional_missing_ids]
+    overloaded = [UUID(eid) for eid in recommendation.overloaded_employee_ids]
+
+    participant_uuids = list((required_uuids | optional_uuids) - set(overloaded))
+    participant_uuids.sort(key=str)
+    local_times = [
+        _build_local_time(
+            employee_by_id[employee_uuid],
+            recommendation.start_dt,
+            recommendation.end_dt,
+        )
+        for employee_uuid in participant_uuids
+        if employee_uuid in employee_by_id
+    ]
+
+    return MeetingRecommendationResponse(
+        start_dt=recommendation.start_dt,
+        end_dt=recommendation.end_dt,
+        required_available_ids=required_available,
+        required_missing_ids=required_missing,
+        optional_available_ids=optional_available,
+        optional_missing_ids=optional_missing,
+        overloaded_employee_ids=overloaded,
+        local_times=local_times,
+        available_employee_ids=required_available + optional_available,
+        unavailable_employee_ids=required_missing + optional_missing + overloaded,
+        score=recommendation.score,
+    )
+
+
+def _build_local_time(
+    employee: Employee,
+    start_dt: datetime,
+    end_dt: datetime,
+) -> EmployeeLocalTimeResponse:
+    tz = ZoneInfo(employee.timezone)
+    return EmployeeLocalTimeResponse(
+        employee_id=employee.id,
+        timezone=employee.timezone,
+        local_start=start_dt.astimezone(tz),
+        local_end=end_dt.astimezone(tz),
     )

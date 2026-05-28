@@ -15,8 +15,14 @@ def override_current_employee(request: pytest.FixtureRequest) -> Iterator[None]:
         yield
         return
 
+    marker = request.node.get_closest_marker("auth_role")
+    role = marker.args[0] if marker and marker.args else "admin"
+    employee_id = marker.kwargs.get("employee_id") if marker else None
+    if employee_id is None:
+        employee_id = uuid4()
+
     async def fake_current_employee() -> SimpleNamespace:
-        return SimpleNamespace(id=uuid4(), role="admin")
+        return SimpleNamespace(id=employee_id, role=role)
 
     app.dependency_overrides[get_current_employee] = fake_current_employee
     yield

@@ -4,6 +4,7 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 markers = [
     "no_auth_override: disable default current-user dependency override",
+    "auth_role(role, employee_id=None): override the role (and optionally id) of the fake current employee",
 ]
 
 [tool.ruff]

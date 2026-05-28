@@ -65,6 +65,8 @@ async def test_dashboard_summary_empty_database(client: AsyncClient) -> None:
         "outdated_schedules_count": 0,
         "outside_schedule_events_count": 0,
         "last_calculation_at": None,
+        "actual_schedules_count": 0,
+        "vacations_this_month": 0,
     }
 
 
@@ -139,4 +141,6 @@ async def test_dashboard_summary_non_empty_database(client: AsyncClient) -> None
         "outdated_schedules_count": 1,
         "outside_schedule_events_count": 5,
         "last_calculation_at": "2026-05-24T12:00:00Z",
+        "actual_schedules_count": 2,
+        "vacations_this_month": 0,
     }

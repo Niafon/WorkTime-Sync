@@ -68,5 +68,3 @@ pyproject.toml
 - DB changes include Alembic migration.
 - Tests are added for changed business logic.
 - `pytest`, `ruff check .`, and `mypy app` pass or failures are clearly reported.
-
-"Не борись с ошибками! Каждый раз, когда ты сталкиваешься с одной и той же ошибкой дважды, изучи веб и найди 3–5 возможных способов её исправления. Затем выбери самое эффективное решение и реализуй его."

@@ -4,12 +4,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import CurrentEmployeeDep, get_db_session
+from app.api.deps import CurrentEmployeeDep, get_db_session, require_roles
+from app.core.roles import EmployeeRole
 from app.importers.activity_events import (
     ActivityEventImportValidationError,
     parse_csv_activity_events,
     parse_json_activity_events,
 )
+from app.models.employee import Employee
 from app.schemas.activity_event import (
     ActivityEventCreate,
     ActivityEventImportResult,
@@ -37,7 +39,12 @@ error_responses: dict[int | str, dict[str, Any]] = {
 async def import_activity_events_csv(
     session: SessionDep,
     file: CsvFileDep,
-    _current_employee: CurrentEmployeeDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles(EmployeeRole.ADMIN, EmployeeRole.HR, EmployeeRole.PM)
+        ),
+    ],
 ) -> ActivityEventImportResult:
     content = (await file.read()).decode("utf-8-sig")
     try:
@@ -57,7 +64,12 @@ async def import_activity_events_csv(
 async def import_activity_events_json(
     payload: list[dict[str, object]],
     session: SessionDep,
-    _current_employee: CurrentEmployeeDep,
+    _current_employee: Annotated[
+        Employee,
+        Depends(
+            require_roles(EmployeeRole.ADMIN, EmployeeRole.HR, EmployeeRole.PM)
+        ),
+    ],
 ) -> ActivityEventImportResult:
     try:
         events = parse_json_activity_events(payload)
@@ -77,8 +89,18 @@ async def import_activity_events_json(
 async def create_manual_activity_event(
     payload: ActivityEventCreate,
     session: SessionDep,
-    _current_employee: CurrentEmployeeDep,
+    current_employee: CurrentEmployeeDep,
 ) -> ActivityEventResponse:
+    privileged = {
+        EmployeeRole.ADMIN.value,
+        EmployeeRole.HR.value,
+        EmployeeRole.PM.value,
+    }
+    if current_employee.role not in privileged and current_employee.id != payload.employee_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="insufficient permissions",
+        )
     try:
         event = await ActivityEventService(session).create_manual(payload)
     except NotFoundError as exc:

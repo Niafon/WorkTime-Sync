@@ -18,8 +18,10 @@ def test_employee_response_validates_from_attributes() -> None:
         full_name="Ada Lovelace",
         email="ada@example.com",
         position="Engineer",
+        hire_date=None,
         timezone="Europe/Moscow",
         work_format="remote",
+        employment_type="full_time",
         created_at=created_at,
         updated_at=created_at,
     )
@@ -51,6 +53,7 @@ def test_work_schedule_create_uses_uuid_time_and_work_day_list() -> None:
         start_time=time(9, 0),
         end_time=time(18, 0),
         timezone="Europe/Moscow",
+        work_format="office",
         last_updated_at=last_updated_at,
         is_active=True,
     )

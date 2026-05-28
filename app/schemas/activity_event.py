@@ -1,7 +1,8 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from dateutil.rrule import rrulestr
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class ActivityEventCreate(BaseModel):
@@ -13,8 +14,23 @@ class ActivityEventCreate(BaseModel):
     start_dt: datetime
     end_dt: datetime
     timezone: str
+    recurrence_rule: str | None = None
     is_recurring: bool = False
     is_outside_schedule: bool = False
+
+    @field_validator("recurrence_rule")
+    @classmethod
+    def _validate_recurrence_rule(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        try:
+            rrulestr(value, dtstart=datetime(2000, 1, 1))
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"invalid recurrence_rule: {exc}") from exc
+        return value
 
 
 class ActivityEventImportResult(BaseModel):
@@ -33,6 +49,7 @@ class ActivityEventResponse(BaseModel):
     start_dt: datetime
     end_dt: datetime
     timezone: str
+    recurrence_rule: str | None
     is_recurring: bool
     is_outside_schedule: bool
 

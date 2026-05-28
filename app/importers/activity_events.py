@@ -84,7 +84,10 @@ def _normalize_raw_event(raw_event: dict[str, object]) -> dict[str, object]:
     normalized["external_id"] = _normalize_optional_str(normalized.get("external_id"))
     normalized["start_dt"] = _normalize_datetime(normalized.get("start_dt"))
     normalized["end_dt"] = _normalize_datetime(normalized.get("end_dt"))
+    normalized["recurrence_rule"] = _normalize_optional_str(normalized.get("recurrence_rule"))
     normalized["is_recurring"] = _normalize_bool(normalized.get("is_recurring"), default=False)
+    if normalized["recurrence_rule"] is not None:
+        normalized["is_recurring"] = True
     normalized.setdefault("is_outside_schedule", False)
     return normalized
 

@@ -33,9 +33,14 @@ class WorkSchedule(Base):
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+    work_format: Mapped[str] = mapped_column(String(30), nullable=False)
     last_updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
+    )
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
     is_active: Mapped[bool] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(

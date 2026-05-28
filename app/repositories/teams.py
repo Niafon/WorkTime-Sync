@@ -29,3 +29,7 @@ class TeamRepository:
         await self.session.flush()
         await self.session.refresh(team)
         return team
+
+    async def delete(self, team: Team) -> None:
+        await self.session.delete(team)
+        await self.session.flush()
