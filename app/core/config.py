@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     app_name: str = "WorkTime Sync"
     debug: bool = Field(default=False, validation_alias="APP_DEBUG")
     api_v1_prefix: str = "/api/v1"
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:3001",
+        validation_alias="CORS_ORIGINS",
+    )
 
     postgres_host: str = "localhost"
     postgres_port: int = 55432
@@ -61,6 +65,10 @@ class Settings(BaseSettings):
             f"{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 @lru_cache
